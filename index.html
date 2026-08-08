@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swing Trade AI News</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4">
+    <div class="max-w-xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4 text-yellow-400 text-center">📈 Moliya Yangiliklari & AI Tahlil</h1>
+        
+        <button onclick="getNews()" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-bold mb-6 transition">
+            🔄 Yangiliklarni olish
+        </button>
+
+        <div id="loading" class="hidden text-center text-gray-400 mb-4">Yuklanmoqda va AI tahlil qilmoqda...</div>
+
+        <div id="content" class="space-y-4"></div>
+    </div>
+
+    <script>
+        async function getNews() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('content').innerHTML = '';
+
+            try {
+                const res = await fetch('/api/news');
+                const data = await res.json();
+                
+                document.getElementById('loading').classList.add('hidden');
+                
+                let html = `<div class="bg-gray-800 p-4 rounded-xl border border-yellow-500/30 mb-4">
+                    <h2 class="font-bold text-yellow-400 mb-2">🤖 AI Swing-Tahlili:</h2>
+                    <p class="text-gray-200 text-sm whitespace-pre-line">${data.analysis}</p>
+                </div>`;
+
+                data.news.forEach(item => {
+                    html += `<div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                        <h3 class="font-bold text-base mb-1">${item.headline}</h3>
+                        <p class="text-xs text-gray-400 mb-2">${item.summary || ''}</p>
+                        <a href="${item.url}" target="_blank" class="text-blue-400 text-xs font-semibold">Batafsil ↗</a>
+                    </div>`;
+                });
+
+                document.getElementById('content').innerHTML = html;
+            } catch (err) {
+                document.getElementById('loading').innerText = 'Xatolik yuz berdi!';
+            }
+        }
+    </script>
+</body>
+</html>
