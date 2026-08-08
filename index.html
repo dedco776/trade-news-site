@@ -3,51 +3,145 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swing Trade AI News</title>
+    <title>Islamic Swing Terminal - Moliya & Halol Investitsiya</title>
+    <!-- Tailwind CSS (Dizayn uchun) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome (Ikonkalar uchun) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-4">
-    <div class="max-w-xl mx-auto">
-        <h1 class="text-2xl font-bold mb-4 text-yellow-400 text-center">📈 Moliya Yangiliklari & AI Tahlil</h1>
-        
-        <button onclick="getNews()" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-xl font-bold mb-6 transition">
-            🔄 Yangiliklarni olish
-        </button>
+<body class="min-h-screen pb-10">
 
-        <div id="loading" class="hidden text-center text-gray-400 mb-4">Yuklanmoqda va AI tahlil qilmoqda...</div>
+    <!-- Header / Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 p-4 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid me fa-chart-line text-emerald-400 text-2xl"></i>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                    Islamic Swing Terminal
+                </h1>
+            </div>
+            <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+                <i class="fa-solid fa-check-circle"></i> Halol Filtr
+            </span>
+        </div>
+    </header>
 
-        <div id="content" class="space-y-4"></div>
-    </div>
+    <main class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Chap tomon: TradingView Grafik va Halol Aktivlar -->
+        <section class="lg:col-span-2 space-y-6">
+            
+            <!-- Halol ETF va Aksiyalar Vidjeti -->
+            <div class="glass-card rounded-2xl p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-mosque text-emerald-400"></i> Halol ETF & Aksiyalar
+                    </h2>
+                    <span class="text-xs text-slate-400">SPUS / HLAL / AAPL / NVDA</span>
+                </div>
+                
+                <!-- TradingView Symbol Overview Widget -->
+                <div class="tradingview-widget-container" style="height: 400px;">
+                    <div id="tradingview_chart" style="height: 100%;"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                    <script type="text/javascript">
+                    new TradingView.widget({
+                        "autosize": true,
+                        "symbol": "AMEX:SPUS",
+                        "interval": "D",
+                        "timezone": "Etc/UTC",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "en",
+                        "toolbar_bg": "#f1f3f6",
+                        "enable_publishing": false,
+                        "allow_symbol_change": true,
+                        "container_id": "tradingview_chart"
+                    });
+                    </script>
+                </div>
+            </div>
+
+            <!-- Kalit Ko'rsatkichlar (Market Overview) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="text-xs text-slate-400">SPUS (S&P 500 Shariah)</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol ETF</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="text-xs text-slate-400">HLAL (Wahed FTSE)</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol ETF</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="text-xs text-slate-400">NVDA (NVIDIA)</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol Aksiya</p>
+                </div>
+                <div class="glass-card p-4 rounded-xl">
+                    <p class="text-xs text-slate-400">AAPL (Apple)</p>
+                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol Aksiya</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- O'ng tomon: Yangiliklar bo'limi -->
+        <section class="space-y-4">
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-newspaper text-cyan-400"></i> Bozor Yangiliklari
+                    </h2>
+                    <button onclick="fetchNews()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs transition">
+                        <i class="fa-solid fa-rotate"></i> Yangilash
+                    </button>
+                </div>
+
+                <!-- Yangiliklar ro'yxati chiqadigan joy -->
+                <div id="news-container" class="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+                    <p class="text-slate-400 text-sm text-center py-8">Yangiliklarni yuklash uchun tugmani bosing...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
 
     <script>
-        async function getNews() {
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('content').innerHTML = '';
+        async function fetchNews() {
+            const container = document.getElementById('news-container');
+            container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>`;
 
             try {
-                const res = await fetch('/api/news');
-                const data = await res.json();
-                
-                document.getElementById('loading').classList.add('hidden');
-                
-                let html = `<div class="bg-gray-800 p-4 rounded-xl border border-yellow-500/30 mb-4">
-                    <h2 class="font-bold text-yellow-400 mb-2">🤖 AI Swing-Tahlili:</h2>
-                    <p class="text-gray-200 text-sm whitespace-pre-line">${data.analysis}</p>
-                </div>`;
+                // Vercel backend API endpointingiz manzili
+                const response = await fetch('/api/news');
+                const data = await response.json();
 
-                data.news.forEach(item => {
-                    html += `<div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                        <h3 class="font-bold text-base mb-1">${item.headline}</h3>
-                        <p class="text-xs text-gray-400 mb-2">${item.summary || ''}</p>
-                        <a href="${item.url}" target="_blank" class="text-blue-400 text-xs font-semibold">Batafsil ↗</a>
-                    </div>`;
-                });
-
-                document.getElementById('content').innerHTML = html;
+                if (data.news && data.news.length > 0) {
+                    container.innerHTML = '';
+                    data.news.forEach(item => {
+                        container.innerHTML += `
+                            <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition">
+                                <h3 class="font-medium text-sm text-slate-200">${item.headline}</h3>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${item.summary}</p>
+                                <a href="${item.url}" target="_blank" class="inline-block mt-2 text-xs text-emerald-400 hover:underline">
+                                    Manbani o'qish <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                </a>
+                            </div>
+                        `;
+                    });
+                } else {
+                    container.innerHTML = `<p class="text-red-400 text-sm text-center py-8">Yangiliklar topilmadi.</p>`;
+                }
             } catch (err) {
-                document.getElementById('loading').innerText = 'Xatolik yuz berdi!';
+                container.innerHTML = `<p class="text-red-400 text-sm text-center py-8">Xatolik yuz berdi.</p>`;
             }
         }
+
+        // Sahifa yuklanganda avtomatik yangiliklarni olish
+        window.onload = fetchNews;
     </script>
 </body>
 </html>
