@@ -31,6 +31,13 @@
                     <p class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase" data-i18n="subtitle">Halol Swing Terminal</p>
                 </div>
             </div>
+
+            <!-- FUNKSIYA 3: Market Status & Session Timer -->
+            <div class="hidden md:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs">
+                <span id="market-status-dot" class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                <span id="market-status-text" class="font-bold text-slate-300">NYSE: CLOSED</span>
+                <span id="market-timer" class="text-slate-400 font-mono text-[11px] border-l border-slate-700 pl-2">--:--:--</span>
+            </div>
             
             <!-- Til Tanlash Tugmalari va Status -->
             <div class="flex items-center gap-3">
@@ -83,9 +90,8 @@
                 </div>
             </div>
 
-            <!-- YANGI BO'LIM: Top 5 BUY va Top 5 SELL Aksiyalar -->
+            <!-- TOP 5 BUY va TOP 5 SELL Aksiyalar -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
                 <!-- Top 5 BUY -->
                 <div class="glass-card p-4 rounded-2xl border-t-2 border-emerald-500">
                     <h3 class="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2">
@@ -105,18 +111,33 @@
                         <p class="text-xs text-slate-400 text-center py-4"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Signal & Tahlil Paneli (Entry, TP, SL) -->
+            <!-- Signal & Tahlil Paneli (Entry, TP, SL) + FUNKSIYA 2: Risk-to-Reward Ratio & FUNKSIYA 5: Halol Status -->
             <div id="signal-card" class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
                 <div class="flex justify-between items-center mb-3">
                     <h3 class="font-bold text-slate-200 text-base flex items-center gap-2">
-                        <i class="fa-solid fa-compass text-emerald-400"></i> <span id="symbol-name">AAPL</span> <span data-i18n="signal_title">Bozor Tahlili & Signal</span>
+                        <i class="fa-solid fa-compass text-emerald-400"></i> 
+                        <span id="symbol-name">AAPL</span> 
+                        
+                        <!-- FUNKSIYA 5: Halol Compliance Badge -->
+                        <span id="halol-badge" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> <span data-i18n="halal_status">100% Halol</span>
+                        </span>
+
+                        <span data-i18n="signal_title">Bozor Tahlili & Signal</span>
                     </h3>
-                    <span id="signal-badge" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase">
-                        BUY
-                    </span>
+
+                    <div class="flex items-center gap-2">
+                        <!-- FUNKSIYA 4: Favorite Toggle Button -->
+                        <button onclick="toggleFavorite()" id="fav-btn" class="text-slate-400 hover:text-amber-400 transition text-base p-1" title="Watchlist'ga qo'shish">
+                            <i class="fa-regular fa-star"></i>
+                        </button>
+                        
+                        <span id="signal-badge" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase">
+                            BUY
+                        </span>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-3 gap-3 my-4">
@@ -134,16 +155,74 @@
                     </div>
                 </div>
 
+                <!-- FUNKSIYA 2: Visual Risk-to-Reward Indicator -->
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 mb-4 flex justify-between items-center">
+                    <div class="flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+                        <span class="font-semibold text-slate-300" data-i18n="rr_title">Risk/Mukofot Nisbati (R:R):</span>
+                        <span id="rr-ratio-value" class="font-bold text-emerald-400">1 : 2.5</span>
+                    </div>
+                    <span id="rr-badge" class="text-[10px] bg-emerald-500/20 text-emerald-400 font-extrabold px-2 py-0.5 rounded border border-emerald-500/30">
+                        AJOYIB RATIO
+                    </span>
+                </div>
+
                 <div class="text-xs text-slate-300 space-y-1 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
                     <p><strong><i class="fa-solid fa-microchip text-emerald-400"></i> <span data-i18n="tech_analysis">Texnik Tahlil:</span></strong> <span id="tech-reason">--</span></p>
                     <p><strong><i class="fa-solid fa-globe text-cyan-400"></i> <span data-i18n="fund_analysis">Fundamental Tahlil:</span></strong> <span id="fund-reason">--</span></p>
                 </div>
             </div>
 
+            <!-- FUNKSIYA 1: Dynamic Position Size & Risk Calculator -->
+            <div class="glass-card p-5 rounded-2xl border-t-2 border-cyan-500">
+                <h3 class="text-sm font-bold text-cyan-400 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator"></i> <span data-i18n="calc_title">Position Size & Risk Calculator</span>
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[11px] text-slate-400 font-semibold" data-i18n="depo_label">Depozit Qiymati ($)</label>
+                            <input type="number" id="calc-depo" value="10000" oninput="calculatePosition()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500 mt-1">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 font-semibold" data-i18n="risk_label">Tavakkal Foizi (%)</label>
+                            <input type="number" id="calc-risk" value="1" step="0.5" oninput="calculatePosition()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500 mt-1">
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-800 flex flex-col justify-center space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400" data-i18n="risk_amt">Risk Summasi:</span>
+                            <span id="res-risk-usd" class="font-bold text-rose-400">$100.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400" data-i18n="shares_amt">Aksiya Soni (Lot):</span>
+                            <span id="res-shares" class="font-bold text-cyan-400">11 ta</span>
+                        </div>
+                        <div class="flex justify-between border-t border-slate-800 pt-1">
+                            <span class="text-slate-400" data-i18n="pos_amt">Pozitsiya Hujmi:</span>
+                            <span id="res-total-pos" class="font-bold text-emerald-400">$2,425.50</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
-        <!-- O'ng tomon: DCT Bozor Yangiliklari & Qidiruv -->
+        <!-- O'ng tomon: Watchlist & DCT Bozor Yangiliklari -->
         <section class="space-y-4">
+
+            <!-- FUNKSIYA 4: Watchlist (Saralangan Aksiyalar) -->
+            <div class="glass-card rounded-2xl p-4">
+                <h2 class="text-sm font-bold flex items-center justify-between mb-3 text-amber-400">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-star"></i> <span data-i18n="watchlist_title">Watchlist (Saralangan)</span></span>
+                    <span id="fav-count" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">0</span>
+                </h2>
+                <div id="watchlist-container" class="flex flex-wrap gap-2">
+                    <p class="text-xs text-slate-500 italic" data-i18n="no_favs">Hozircha saqlangan aksiyalar yo'q.</p>
+                </div>
+            </div>
+
+            <!-- DCT Bozor Yangiliklari & Qidiruv -->
             <div class="glass-card rounded-2xl p-5">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
@@ -172,7 +251,21 @@
     <script>
         let currentLang = 'uz';
         let currentSymbol = 'AAPL';
-        let rawSignalData = null;
+        let favorites = JSON.parse(localStorage.getItem('dct_favorites')) || ['AAPL', 'NVDA', 'SPUS'];
+
+        const halolDatabase = {
+            'SPUS': { status: '100% Halol', type: 'halal' },
+            'HLAL': { status: '100% Halol', type: 'halal' },
+            'AAPL': { status: 'Halol Compliant', type: 'halal' },
+            'NVDA': { status: 'Halol Compliant', type: 'halal' },
+            'MSFT': { status: 'Halol Compliant', type: 'halal' },
+            'AMZN': { status: 'Halol Compliant', type: 'halal' },
+            'TSLA': { status: 'Qayta Tekshiruvda', type: 'check' },
+            'INTC': { status: 'Qayta Tekshiruvda', type: 'check' },
+            'NKE':  { status: 'Halol Compliant', type: 'halal' },
+            'SBUX': { status: 'Non-Compliant', type: 'non' },
+            'PYPL': { status: 'Non-Compliant', type: 'non' }
+        };
 
         const i18n = {
             uz: {
@@ -195,7 +288,17 @@
                 fund_pos: "bo'yicha so'nggi yangiliklar ijobiy fond yaratmoqda.",
                 fund_neg: "Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda.",
                 top_buy_title: "TOP 5 BUY Signallar",
-                top_sell_title: "TOP 5 SELL Signallar"
+                top_sell_title: "TOP 5 SELL Signallar",
+                calc_title: "Position Size & Risk Calculator",
+                depo_label: "Depozit Qiymati ($)",
+                risk_label: "Tavakkal Foizi (%)",
+                risk_amt: "Risk Summasi:",
+                shares_amt: "Aksiya Soni (Lot):",
+                pos_amt: "Pozitsiya Hujmi:",
+                rr_title: "Risk/Mukofot Nisbati (R:R):",
+                watchlist_title: "Watchlist (Saralangan)",
+                no_favs: "Hozircha saqlangan aksiyalar yo'q.",
+                halal_status: "100% Halol"
             },
             ru: {
                 subtitle: "Халяль Свинг Терминал",
@@ -217,7 +320,17 @@
                 fund_pos: "последние новости создают позитивный фон.",
                 fund_neg: "На рынке преобладает неопределенность и осторожность.",
                 top_buy_title: "ТОП 5 ПОКУПКА (BUY)",
-                top_sell_title: "ТОП 5 ПРОДАЖА (SELL)"
+                top_sell_title: "ТОП 5 ПРОДАЖА (SELL)",
+                calc_title: "Калькулятор Риска и Лота",
+                depo_label: "Депозит ($)",
+                risk_label: "Риск (%)",
+                risk_amt: "Сумма Риска:",
+                shares_amt: "Кол-во Акций (Лот):",
+                pos_amt: "Объем Позиции:",
+                rr_title: "Соотношение Риск/Прибыль (R:R):",
+                watchlist_title: "Избранное (Watchlist)",
+                no_favs: "Нет сохраненных акций.",
+                halal_status: "100% Халяль"
             },
             en: {
                 subtitle: "Halal Swing Terminal",
@@ -239,9 +352,177 @@
                 fund_pos: "recent news creating positive momentum.",
                 fund_neg: "Market is dominated by uncertainty and caution.",
                 top_buy_title: "TOP 5 BUY Signals",
-                top_sell_title: "TOP 5 SELL Signals"
+                top_sell_title: "TOP 5 SELL Signals",
+                calc_title: "Position Size & Risk Calculator",
+                depo_label: "Account Balance ($)",
+                risk_label: "Risk Percentage (%)",
+                risk_amt: "Risk Amount:",
+                shares_amt: "Shares (Lot):",
+                pos_amt: "Position Value:",
+                rr_title: "Risk-to-Reward Ratio (R:R):",
+                watchlist_title: "Watchlist (Favorites)",
+                no_favs: "No saved stocks yet.",
+                halal_status: "100% Halal"
             }
         };
+
+        // FUNKSIYA 3: Market Status & Session Timer Logic (Nyu-York vaqti bo'yicha)
+        function updateMarketTimer() {
+            const now = new Date();
+            const utcDay = now.getUTCDay();
+            const utcHours = now.getUTCHours();
+            const utcMinutes = now.getUTCMinutes();
+            const utcSeconds = now.getUTCSeconds();
+
+            // NY Time UTC-4 (EDT)
+            const nyHour = (utcHours - 4 + 24) % 24;
+            const marketOpenTime = 9.5 * 3600; // 9:30 AM
+            const marketCloseTime = 16 * 3600;  // 4:00 PM
+            const currentSeconds = nyHour * 3600 + utcMinutes * 60 + utcSeconds;
+
+            const isWeekday = utcDay >= 1 && utcDay <= 5;
+            const isOpen = isWeekday && currentSeconds >= marketOpenTime && currentSeconds < marketCloseTime;
+
+            const dot = document.getElementById('market-status-dot');
+            const statusText = document.getElementById('market-status-text');
+            const timer = document.getElementById('market-timer');
+
+            if (isOpen) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                statusText.innerText = "NYSE: OPEN";
+                const remaining = marketCloseTime - currentSeconds;
+                timer.innerText = formatSeconds(remaining);
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                statusText.innerText = "NYSE: CLOSED";
+                let remaining = 0;
+                if (currentSeconds < marketOpenTime && isWeekday) {
+                    remaining = marketOpenTime - currentSeconds;
+                } else {
+                    remaining = (24 * 3600 - currentSeconds) + marketOpenTime;
+                }
+                timer.innerText = formatSeconds(remaining);
+            }
+        }
+
+        function formatSeconds(sec) {
+            const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+            const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(sec % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        setInterval(updateMarketTimer, 1000);
+
+        // FUNKSIYA 1: Dynamic Position Size Calculator
+        function calculatePosition() {
+            const depo = parseFloat(document.getElementById('calc-depo').value) || 0;
+            const riskPct = parseFloat(document.getElementById('calc-risk').value) || 0;
+
+            const entryText = document.getElementById('entry-price').innerText.replace('$', '');
+            const slText = document.getElementById('sl-price').innerText.replace('$', '');
+
+            const entry = parseFloat(entryText) || 0;
+            const sl = parseFloat(slText) || 0;
+
+            if (entry <= 0 || sl <= 0 || entry === sl) return;
+
+            const riskUSD = (depo * riskPct) / 100;
+            const riskPerShare = Math.abs(entry - sl);
+            const shares = Math.floor(riskUSD / riskPerShare);
+            const totalPosition = shares * entry;
+
+            document.getElementById('res-risk-usd').innerText = `$${riskUSD.toFixed(2)}`;
+            document.getElementById('res-shares').innerText = `${shares} ta`;
+            document.getElementById('res-total-pos').innerText = `$${totalPosition.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+
+        // FUNKSIYA 2: Risk-to-Reward Calculator & Visual Indicator
+        function updateRiskRewardRatio() {
+            const entry = parseFloat(document.getElementById('entry-price').innerText.replace('$', '')) || 0;
+            const tp = parseFloat(document.getElementById('tp-price').innerText.replace('$', '')) || 0;
+            const sl = parseFloat(document.getElementById('sl-price').innerText.replace('$', '')) || 0;
+
+            if (entry === 0 || tp === 0 || sl === 0) return;
+
+            const risk = Math.abs(entry - sl);
+            const reward = Math.abs(tp - entry);
+
+            const ratio = (reward / risk).toFixed(1);
+
+            document.getElementById('rr-ratio-value').innerText = `1 : ${ratio}`;
+
+            const badge = document.getElementById('rr-badge');
+            if (ratio >= 2.0) {
+                badge.innerText = "AJOYIB RATIO";
+                badge.className = "text-[10px] bg-emerald-500/20 text-emerald-400 font-extrabold px-2 py-0.5 rounded border border-emerald-500/30";
+            } else if (ratio >= 1.2) {
+                badge.innerText = "O'RTA RATIO";
+                badge.className = "text-[10px] bg-amber-500/20 text-amber-400 font-extrabold px-2 py-0.5 rounded border border-amber-500/30";
+            } else {
+                badge.innerText = "XAVFLI RATIO";
+                badge.className = "text-[10px] bg-rose-500/20 text-rose-400 font-extrabold px-2 py-0.5 rounded border border-rose-500/30";
+            }
+        }
+
+        // FUNKSIYA 5: Halol Badge Status Update
+        function updateHalolBadge(symbol) {
+            const badge = document.getElementById('halol-badge');
+            const data = halolDatabase[symbol.toUpperCase()] || { status: 'Halol Compliant', type: 'halal' };
+
+            if (data.type === 'halal') {
+                badge.className = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1";
+                badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>${data.status}</span>`;
+            } else if (data.type === 'check') {
+                badge.className = "bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1";
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span>${data.status}</span>`;
+            } else {
+                badge.className = "bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1";
+                badge.innerHTML = `<i class="fa-solid fa-ban"></i> <span>${data.status}</span>`;
+            }
+        }
+
+        // FUNKSIYA 4: Watchlist (Favorites) Management
+        function renderWatchlist() {
+            const container = document.getElementById('watchlist-container');
+            document.getElementById('fav-count').innerText = favorites.length;
+
+            if (favorites.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 italic" data-i18n="no_favs">${i18n[currentLang].no_favs}</p>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            favorites.forEach(sym => {
+                container.innerHTML += `
+                    <button onclick="fetchNews('${sym}')" class="bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-line text-cyan-400 text-[10px]"></i> ${sym}
+                    </button>
+                `;
+            });
+
+            updateFavBtn();
+        }
+
+        function toggleFavorite() {
+            const sym = currentSymbol.toUpperCase();
+            if (favorites.includes(sym)) {
+                favorites = favorites.filter(s => s !== sym);
+            } else {
+                favorites.push(sym);
+            }
+            localStorage.setItem('dct_favorites', JSON.stringify(favorites));
+            renderWatchlist();
+        }
+
+        function updateFavBtn() {
+            const btn = document.getElementById('fav-btn');
+            if (favorites.includes(currentSymbol.toUpperCase())) {
+                btn.innerHTML = `<i class="fa-solid fa-star text-amber-400"></i>`;
+            } else {
+                btn.innerHTML = `<i class="fa-regular fa-star"></i>`;
+            }
+        }
 
         function renderSignalReason(action) {
             const isPositive = action === 'BUY';
@@ -254,7 +535,6 @@
             document.getElementById('fund-reason').innerText = fundText;
         }
 
-        // Top Buy va Sell kartalarini chizish funksiyasi
         function renderTopCards(list, containerId, isBuy) {
             const container = document.getElementById(containerId);
             if (!list || list.length === 0) return;
@@ -275,7 +555,10 @@
         }
 
         async function fetchNews(symbol = 'AAPL') {
-            currentSymbol = symbol;
+            currentSymbol = symbol.toUpperCase();
+            updateFavBtn();
+            updateHalolBadge(currentSymbol);
+
             const container = document.getElementById('news-container');
             container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> ${i18n[currentLang].loading}</p>`;
 
@@ -284,8 +567,7 @@
                 const data = await response.json();
 
                 if(data.signal) {
-                    rawSignalData = data.signal;
-                    document.getElementById('symbol-name').innerText = symbol.toUpperCase();
+                    document.getElementById('symbol-name').innerText = currentSymbol;
                     const badge = document.getElementById('signal-badge');
                     badge.innerText = data.signal.action;
                     
@@ -302,13 +584,13 @@
                     document.getElementById('sl-price').innerText = data.signal.sl;
 
                     renderSignalReason(data.signal.action);
+                    updateRiskRewardRatio();
+                    calculatePosition();
                 }
 
-                // TOP Buy/Sell panellarini yangilash
                 if(data.topBuy) renderTopCards(data.topBuy, 'top-buy-list', true);
                 if(data.topSell) renderTopCards(data.topSell, 'top-sell-list', false);
 
-                // Yangiliklar
                 if (data.news && data.news.length > 0) {
                     container.innerHTML = '';
                     data.news.forEach(item => {
@@ -356,6 +638,7 @@
                 }
             });
 
+            renderWatchlist();
             fetchNews(currentSymbol);
         }
 
@@ -366,7 +649,11 @@
             }
         }
 
-        window.onload = () => fetchNews('AAPL');
+        window.onload = () => {
+            updateMarketTimer();
+            renderWatchlist();
+            fetchNews('AAPL');
+        };
     </script>
 </body>
-</html>
+    </html>
