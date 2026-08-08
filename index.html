@@ -49,7 +49,7 @@
 
     <main class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Chap tomon: TradingView Grafik va Signal Paneli -->
+        <!-- Chap tomon: TradingView Grafik, Top Signallar va Signal Paneli -->
         <section class="lg:col-span-2 space-y-6">
             
             <!-- DCT Halol Aktivlar Grafigi -->
@@ -81,6 +81,31 @@
                     });
                     </script>
                 </div>
+            </div>
+
+            <!-- YANGI BO'LIM: Top 5 BUY va Top 5 SELL Aksiyalar -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <!-- Top 5 BUY -->
+                <div class="glass-card p-4 rounded-2xl border-t-2 border-emerald-500">
+                    <h3 class="text-sm font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-up"></i> <span data-i18n="top_buy_title">TOP 5 BUY Signallar</span>
+                    </h3>
+                    <div id="top-buy-list" class="space-y-2">
+                        <p class="text-xs text-slate-400 text-center py-4"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>
+                    </div>
+                </div>
+
+                <!-- Top 5 SELL -->
+                <div class="glass-card p-4 rounded-2xl border-t-2 border-rose-500">
+                    <h3 class="text-sm font-bold text-rose-400 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-trend-down"></i> <span data-i18n="top_sell_title">TOP 5 SELL Signallar</span>
+                    </h3>
+                    <div id="top-sell-list" class="space-y-2">
+                        <p class="text-xs text-slate-400 text-center py-4"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Signal & Tahlil Paneli (Entry, TP, SL) -->
@@ -149,7 +174,6 @@
         let currentSymbol = 'AAPL';
         let rawSignalData = null;
 
-        // Uch tildagi lug'at
         const i18n = {
             uz: {
                 subtitle: "Halol Swing Terminal",
@@ -169,7 +193,9 @@
                 tech_pos: "Support darajasida shamlar to'planmoqda, narx yuqoriga sinib o'tish arafasida.",
                 tech_neg: "Narx konsolidatsiya zonasida, aniq trend shakllanmaguncha kutgan ma'qul.",
                 fund_pos: "bo'yicha so'nggi yangiliklar ijobiy fond yaratmoqda.",
-                fund_neg: "Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda."
+                fund_neg: "Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda.",
+                top_buy_title: "TOP 5 BUY Signallar",
+                top_sell_title: "TOP 5 SELL Signallar"
             },
             ru: {
                 subtitle: "Халяль Свинг Терминал",
@@ -189,7 +215,9 @@
                 tech_pos: "Свечи консолидируются на уровне поддержки, цена готовится к пробою вверх.",
                 tech_neg: "Цена в зоне консолидации, лучше подождать формирования тренда.",
                 fund_pos: "последние новости создают позитивный фон.",
-                fund_neg: "На рынке преобладает неопределенность и осторожность."
+                fund_neg: "На рынке преобладает неопределенность и осторожность.",
+                top_buy_title: "ТОП 5 ПОКУПКА (BUY)",
+                top_sell_title: "ТОП 5 ПРОДАЖА (SELL)"
             },
             en: {
                 subtitle: "Halal Swing Terminal",
@@ -209,7 +237,9 @@
                 tech_pos: "Candles consolidating at support level, price about to break out upward.",
                 tech_neg: "Price in consolidation zone, better to wait for a clear trend.",
                 fund_pos: "recent news creating positive momentum.",
-                fund_neg: "Market is dominated by uncertainty and caution."
+                fund_neg: "Market is dominated by uncertainty and caution.",
+                top_buy_title: "TOP 5 BUY Signals",
+                top_sell_title: "TOP 5 SELL Signals"
             }
         };
 
@@ -224,13 +254,32 @@
             document.getElementById('fund-reason').innerText = fundText;
         }
 
+        // Top Buy va Sell kartalarini chizish funksiyasi
+        function renderTopCards(list, containerId, isBuy) {
+            const container = document.getElementById(containerId);
+            if (!list || list.length === 0) return;
+
+            container.innerHTML = '';
+            list.forEach(item => {
+                container.innerHTML += `
+                    <div onclick="fetchNews('${item.symbol}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-500 transition cursor-pointer flex justify-between items-center text-xs">
+                        <div class="font-bold text-slate-200">${item.symbol}</div>
+                        <div class="flex gap-3 font-semibold text-[11px]">
+                            <span class="text-cyan-400">Entry: ${item.entry}</span>
+                            <span class="${isBuy ? 'text-emerald-400' : 'text-rose-400'}">TP: ${item.tp}</span>
+                            <span class="text-slate-400">SL: ${item.sl}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         async function fetchNews(symbol = 'AAPL') {
             currentSymbol = symbol;
             const container = document.getElementById('news-container');
             container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> ${i18n[currentLang].loading}</p>`;
 
             try {
-                // API'ga tanlangan lang parametri uzatiladi
                 const response = await fetch(`/api/news?symbol=${symbol}&lang=${currentLang}`);
                 const data = await response.json();
 
@@ -255,7 +304,11 @@
                     renderSignalReason(data.signal.action);
                 }
 
-                // Tarjima qilingan yangiliklarni chiqarish
+                // TOP Buy/Sell panellarini yangilash
+                if(data.topBuy) renderTopCards(data.topBuy, 'top-buy-list', true);
+                if(data.topSell) renderTopCards(data.topSell, 'top-sell-list', false);
+
+                // Yangiliklar
                 if (data.news && data.news.length > 0) {
                     container.innerHTML = '';
                     data.news.forEach(item => {
@@ -281,7 +334,6 @@
             if (currentLang === lang && document.getElementById(`lang-${lang}`).classList.contains('bg-slate-700')) return;
             currentLang = lang;
 
-            // 1. Tugma stillarini yangilash (Aktiv tugma yashil, boshqalari oddiy)
             document.querySelectorAll('.lang-btn').forEach(btn => {
                 btn.className = "lang-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition";
             });
@@ -290,7 +342,6 @@
                 activeBtn.className = "lang-btn px-2.5 py-1 rounded-lg text-emerald-400 bg-slate-700 transition font-extrabold";
             }
 
-            // 2. Interfeysdagi matnlarni tarjima qilish
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (i18n[lang] && i18n[lang][key]) {
@@ -298,7 +349,6 @@
                 }
             });
 
-            // 3. Placeholder tarjimasi
             document.querySelectorAll('[data-i18n-ph]').forEach(el => {
                 const key = el.getAttribute('data-i18n-ph');
                 if (i18n[lang] && i18n[lang][key]) {
@@ -306,7 +356,6 @@
                 }
             });
 
-            // 4. Yangiliklarni va tahlil izohlarini yangi tilda qayta yuklash
             fetchNews(currentSymbol);
         }
 
@@ -320,4 +369,4 @@
         window.onload = () => fetchNews('AAPL');
     </script>
 </body>
-    </html>
+</html>
