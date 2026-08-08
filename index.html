@@ -8,40 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; top: 0px !important; position: static !important; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        
-        /* GOOGLE TRANSLATE XUNUK BANNERLARINI YO'QOTISH (STRICT HIDE) */
-        .goog-te-banner-frame, 
-        .goog-te-banner,
-        .skiptranslate,
-        #goog-gt-tt,
-        .goog-te-balloon-skin { 
-            display: none !important; 
-            visibility: hidden !important;
-            height: 0 !important;
-            width: 0 !important;
-        }
-        
-        /* Brauzer yuqorisidagi bo'shliqni yo'qotish */
-        body { top: 0px !important; }
-        .VIpgJd-yD34zb-Otf3ed-tw4E1d { display: none !important; }
-
-        /* Til dropdown menyusini chiroyli va qorong'u dizaynga moslash */
-        .goog-te-combo { 
-            background: #1e293b !important; 
-            color: #38bdf8 !important; 
-            border: 1px solid #334155 !important; 
-            padding: 4px 8px !important; 
-            border-radius: 8px !important; 
-            outline: none !important; 
-            font-weight: 600 !important; 
-            font-size: 11px !important; 
-            cursor: pointer !important; 
-        }
-        .goog-logo-link, .goog-te-gadget span, .goog-te-gadget { color: transparent !important; font-size: 0 !important; }
     </style>
 </head>
 <body class="min-h-screen pb-10">
@@ -59,16 +28,16 @@
                     <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
                         DEDCO TRADING
                     </h1>
-                    <p class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Halol Swing Terminal</p>
+                    <p class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase" data-i18n="subtitle">Halol Swing Terminal</p>
                 </div>
             </div>
             
-            <!-- O'ng taraf: Til tanlash va status -->
+            <!-- Til Tanlash Tugmalari va Status -->
             <div class="flex items-center gap-3">
-                <!-- Ixcham Til Tanlash -->
-                <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
-                    <i class="fa-solid fa-globe text-cyan-400 text-xs ml-2"></i>
-                    <div id="google_translate_element"></div>
+                <div class="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs font-bold">
+                    <button onclick="changeLang('uz')" class="px-2 py-1 rounded-lg text-emerald-400 hover:bg-slate-700 transition">UZ</button>
+                    <button onclick="changeLang('ru')" class="px-2 py-1 rounded-lg text-slate-300 hover:bg-slate-700 transition">RU</button>
+                    <button onclick="changeLang('en')" class="px-2 py-1 rounded-lg text-slate-300 hover:bg-slate-700 transition">EN</button>
                 </div>
                 
                 <span class="hidden sm:flex bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-3 py-1.5 rounded-xl font-semibold items-center gap-1.5">
@@ -80,14 +49,14 @@
 
     <main class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Chap tomon: TradingView Grafik va Aktivlar -->
+        <!-- Chap tomon: TradingView Grafik va Signal Paneli -->
         <section class="lg:col-span-2 space-y-6">
             
             <!-- DCT Halol Aktivlar Grafigi -->
             <div class="glass-card rounded-2xl p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-chart-candlestick text-emerald-400"></i> DCT Grafik Tahlil
+                        <i class="fa-solid fa-chart-candlestick text-emerald-400"></i> <span data-i18n="chart_title">DCT Grafik Tahlil</span>
                     </h2>
                     <span class="text-xs text-slate-400">SPUS / HLAL / AAPL / NVDA</span>
                 </div>
@@ -97,7 +66,7 @@
                     <div id="tradingview_chart" style="height: 100%;"></div>
                     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
                     <script type="text/javascript">
-                    new TradingView.widget({
+                    let tvWidget = new TradingView.widget({
                         "autosize": true,
                         "symbol": "AMEX:SPUS",
                         "interval": "D",
@@ -114,42 +83,60 @@
                 </div>
             </div>
 
-            <!-- DCT Muhim Ko'rsatkichlar -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="glass-card p-4 rounded-xl border-l-4 border-emerald-500">
-                    <p class="text-xs text-slate-400">DCT Halol ETF</p>
-                    <p class="text-base font-bold text-slate-200 mt-1">SPUS (S&P 500)</p>
+            <!-- Signal & Tahlil Paneli (Entry, TP, SL) -->
+            <div id="signal-card" class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-slate-200 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-compass text-emerald-400"></i> <span id="symbol-name">AAPL</span> <span data-i18n="signal_title">Bozor Tahlili & Signal</span>
+                    </h3>
+                    <span id="signal-badge" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase">
+                        BUY
+                    </span>
                 </div>
-                <div class="glass-card p-4 rounded-xl border-l-4 border-emerald-500">
-                    <p class="text-xs text-slate-400">DCT Halol ETF</p>
-                    <p class="text-base font-bold text-slate-200 mt-1">HLAL (Wahed)</p>
+
+                <div class="grid grid-cols-3 gap-3 my-4">
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 text-center">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase" data-i18n="entry">Entry (Kirish)</p>
+                        <p id="entry-price" class="text-sm font-bold text-cyan-400 mt-1">$220.50</p>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 text-center">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase" data-i18n="tp">Take Profit</p>
+                        <p id="tp-price" class="text-sm font-bold text-emerald-400 mt-1">$235.00</p>
+                    </div>
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 text-center">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase" data-i18n="sl">Stop Loss</p>
+                        <p id="sl-price" class="text-sm font-bold text-rose-400 mt-1">$212.00</p>
+                    </div>
                 </div>
-                <div class="glass-card p-4 rounded-xl border-l-4 border-cyan-500">
-                    <p class="text-xs text-slate-400">DCT Halol Aksiya</p>
-                    <p class="text-base font-bold text-slate-200 mt-1">NVDA (NVIDIA)</p>
-                </div>
-                <div class="glass-card p-4 rounded-xl border-l-4 border-cyan-500">
-                    <p class="text-xs text-slate-400">DCT Halol Aksiya</p>
-                    <p class="text-base font-bold text-slate-200 mt-1">AAPL (Apple)</p>
+
+                <div class="text-xs text-slate-300 space-y-1 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+                    <p><strong><i class="fa-solid fa-microchip text-emerald-400"></i> <span data-i18n="tech_analysis">Texnik Tahlil:</span></strong> <span id="tech-reason">Spport darajasidan qaytish kuzatilmoqda, RSI indikatori burilishni ko'rsatmoqda.</span></p>
+                    <p><strong><i class="fa-solid fa-globe text-cyan-400"></i> <span data-i18n="fund_analysis">Fundamental Tahlil:</span></strong> <span id="fund-reason">So'nggi moliyaviy hisobotlar va yangiliklar ijobiy, talab yuqori.</span></p>
                 </div>
             </div>
 
         </section>
 
-        <!-- O'ng tomon: DCT Bozor Yangiliklari -->
+        <!-- O'ng tomon: DCT Bozor Yangiliklari & Qidiruv -->
         <section class="space-y-4">
             <div class="glass-card rounded-2xl p-5">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-newspaper text-cyan-400"></i> DCT Bozor Yangiliklari
+                        <i class="fa-solid fa-newspaper text-cyan-400"></i> <span data-i18n="news_title">DCT Bozor Yangiliklari</span>
                     </h2>
-                    <button onclick="fetchNews()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1">
-                        <i class="fa-solid fa-rotate"></i> Yangilash
+                </div>
+
+                <!-- Qidiruv Satri -->
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="ticker-search" placeholder="Aksiya tikerini kiriting (masalan: AAPL, NVDA)..." 
+                           class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition">
+                    <button onclick="searchTicker()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1">
+                        <i class="fa-solid fa-magnifying-glass"></i>
                     </button>
                 </div>
 
                 <!-- Yangiliklar ro'yxati -->
-                <div id="news-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                <div id="news-container" class="space-y-4 max-h-[480px] overflow-y-auto pr-1">
                     <p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yangiliklar yuklanmoqda...</p>
                 </div>
             </div>
@@ -157,27 +144,83 @@
 
     </main>
 
-    <!-- Google Translate Skripti -->
-    <script type="text/javascript">
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                includedLanguages: 'uz,ru,en',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-            }, 'google_translate_element');
-        }
-    </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
     <script>
-        async function fetchNews() {
+        // Ko'p tillik lug'at
+        const i18n = {
+            uz: {
+                subtitle: "Halol Swing Terminal",
+                chart_title: "DCT Grafik Tahlil",
+                signal_title: "Bozor Tahlili & Signal",
+                news_title: "DCT Bozor Yangiliklari",
+                entry: "Kirish Narxi",
+                tp: "Take Profit",
+                sl: "Stop Loss",
+                tech_analysis: "Texnik Tahlil:",
+                fund_analysis: "Fundamental Tahlil:"
+            },
+            ru: {
+                subtitle: "Халяль Свинг Терминал",
+                chart_title: "DCT График Анализ",
+                signal_title: "Анализ Рынка и Сигнал",
+                news_title: "DCT Новости Рынка",
+                entry: "Точка Входа",
+                tp: "Тейк Профит",
+                sl: "Стоп Лосс",
+                tech_analysis: "Технический Анализ:",
+                fund_analysis: "Фундаментальный Анализ:"
+            },
+            en: {
+                subtitle: "Halal Swing Terminal",
+                chart_title: "DCT Chart Analysis",
+                signal_title: "Market Analysis & Signal",
+                news_title: "DCT Market News",
+                entry: "Entry Price",
+                tp: "Take Profit",
+                sl: "Stop Loss",
+                tech_analysis: "Technical Analysis:",
+                fund_analysis: "Fundamental Analysis:"
+            }
+        };
+
+        function changeLang(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    el.innerText = i18n[lang][key];
+                }
+            });
+        }
+
+        async function fetchNews(symbol = 'AAPL') {
             const container = document.getElementById('news-container');
             container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>`;
 
             try {
-                const response = await fetch('/api/news');
+                const response = await fetch(`/api/news?symbol=${symbol}`);
                 const data = await response.json();
 
+                // Signal paneli ma'lumotlarini yangilash
+                if(data.signal) {
+                    document.getElementById('symbol-name').innerText = symbol.toUpperCase();
+                    const badge = document.getElementById('signal-badge');
+                    badge.innerText = data.signal.action;
+                    
+                    if (data.signal.action === 'BUY') {
+                        badge.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase";
+                    } else if (data.signal.action === 'SELL') {
+                        badge.className = "bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase";
+                    } else {
+                        badge.className = "bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-extrabold px-3 py-1 rounded-lg uppercase";
+                    }
+
+                    document.getElementById('entry-price').innerText = data.signal.entry;
+                    document.getElementById('tp-price').innerText = data.signal.tp;
+                    document.getElementById('sl-price').innerText = data.signal.sl;
+                    document.getElementById('tech-reason').innerText = data.signal.tech;
+                    document.getElementById('fund-reason').innerText = data.signal.fund;
+                }
+
+                // Yangiliklarni chiqarish
                 if (data.news && data.news.length > 0) {
                     container.innerHTML = '';
                     data.news.forEach(item => {
@@ -192,14 +235,21 @@
                         `;
                     });
                 } else {
-                    container.innerHTML = `<p class="text-red-400 text-sm text-center py-8">Yangiliklar topilmadi.</p>`;
+                    container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8">Ushbu aksiya bo'yicha yangilik topilmadi.</p>`;
                 }
             } catch (err) {
                 container.innerHTML = `<p class="text-red-400 text-sm text-center py-8">Xatolik yuz berdi.</p>`;
             }
         }
 
-        window.onload = fetchNews;
+        function searchTicker() {
+            const input = document.getElementById('ticker-search').value.trim();
+            if (input) {
+                fetchNews(input);
+            }
+        }
+
+        window.onload = () => fetchNews('AAPL');
     </script>
 </body>
-</html>
+    </html>
