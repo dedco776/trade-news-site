@@ -6,7 +6,6 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "FINNHUB_API_KEY topilmadi." });
     }
 
-    // Google Translate orqali avtomatik tarjima qilish funksiyasi
     async function translateText(text, targetLang) {
         if (!text || targetLang === 'en') return text;
         try {
@@ -15,7 +14,7 @@ export default async function handler(req, res) {
             const data = await response.json();
             return data[0].map(item => item[0]).join('');
         } catch (e) {
-            return text; // Xatolik yuz bersa, asl inglizcha matn qaytadi
+            return text;
         }
     }
 
@@ -40,7 +39,6 @@ export default async function handler(req, res) {
 
         const rawNews = Array.isArray(newsData) ? newsData.slice(0, 5) : [];
 
-        // 2. Yangilik sarlavhalari va izohlarini tanlangan tilga tarjima qilish
         const translatedNews = await Promise.all(rawNews.map(async (item) => {
             const headline = await translateText(item.headline, lang);
             const summary = await translateText(item.summary, lang);
@@ -51,7 +49,7 @@ export default async function handler(req, res) {
             };
         }));
 
-        // Dynamic Signal Generator (Demo Tahlil Mantiqi)
+        // Dynamic Signal Generator (Asosiy qidirilgan aksiya uchun)
         const basePrices = {
             'AAPL': 225.0,
             'NVDA': 120.0,
@@ -75,9 +73,28 @@ export default async function handler(req, res) {
             sl: sl
         };
 
+        // TOP 5 BUY & SELL Aksiyalar Ro'yxati
+        const topBuy = [
+            { symbol: 'NVDA', entry: '$124.50', tp: '$135.00', sl: '$118.00' },
+            { symbol: 'AAPL', entry: '$225.00', tp: '$240.00', sl: '$215.00' },
+            { symbol: 'MSFT', entry: '$448.20', tp: '$475.00', sl: '$430.00' },
+            { symbol: 'AMZN', entry: '$186.10', tp: '$200.00', sl: '$178.00' },
+            { symbol: 'SPUS', entry: '$59.20',  tp: '$64.00',  sl: '$56.50' }
+        ];
+
+        const topSell = [
+            { symbol: 'TSLA', entry: '$210.00', tp: '$190.00', sl: '$222.00' },
+            { symbol: 'INTC', entry: '$20.50',  tp: '$18.00',  sl: '$22.00' },
+            { symbol: 'NKE',  entry: '$73.00',  tp: '$67.00',  sl: '$76.50' },
+            { symbol: 'SBUX', entry: '$75.40',  tp: '$69.00',  sl: '$79.00' },
+            { symbol: 'PYPL', entry: '$64.10',  tp: '$58.00',  sl: '$67.50' }
+        ];
+
         return res.status(200).json({ 
             news: translatedNews, 
-            signal: signal 
+            signal: signal,
+            topBuy: topBuy,
+            topSell: topSell
         });
 
     } catch (error) {
