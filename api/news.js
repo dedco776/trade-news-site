@@ -4,7 +4,7 @@ export default async function handler(req, res) {
 
     if (!FINNHUB_KEY || !GEMINI_KEY) {
         return res.status(500).json({ 
-            error: "API kalitlar topilmadi. Vercel Settings -> Environment Variables bo'limini tekshiring." 
+            error: "API kalitlar topilmadi. Vercel Settings -> Environment Variables bo'limida FINNHUB_API_KEY va GEMINI_API_KEY mavjudligini tekshiring." 
         });
     }
 
@@ -18,10 +18,10 @@ export default async function handler(req, res) {
         const topNews = newsData.slice(0, 5);
 
         // 2. Gemini AI Prompt
-        const aiPrompt = `Siz moliya tahlilchisiz. Quyidagi yangiliklarni o'zbek tiliga o'giring va qisqa AI Swing-Tahlil bering.
-Javobni FAQAT to'g'ridan-to'g'ri JSON formatida qaytaring, boshqa hech qanday matn va markdown belgilarini yozmang:
+        const aiPrompt = `Siz moliya va swing-treding bo'yicha tahlilchisiz. Quyidagi yangiliklarni o'zbek tiliga o'giring va qisqa AI Swing-Tahlil bering.
+Javobni FAQAT to'g'ridan-to'g'ri JSON formatida qaytaring, boshqa hech qanday matn va markdown belgilarini (masalan \`\`\`json) yozmang:
 {
-  "analysis": "Umumiy o'zbekcha tahlil",
+  "analysis": "Umumiy o'zbekcha tahlil va swing-trederlar uchun xulosa",
   "translated_news": [
      {"headline": "O'zbekcha sarlavha", "summary": "O'zbekcha qisqa mazmun", "url": "original_url"}
   ]
@@ -30,7 +30,7 @@ Javobni FAQAT to'g'ridan-to'g'ri JSON formatida qaytaring, boshqa hech qanday ma
 Yangiliklar:
 ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, url: n.url})))}`;
 
-        // 3. Gemini API So'rovi (gemini-2.5-flash qo'llanildi)
+        // 3. Gemini API So'rovi (gemini-2.5-flash)
         const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
             method: 'POST',
             headers: {
@@ -81,5 +81,7 @@ ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, ur
     } catch (error) {
         console.error("Server Error:", error);
         res.status(500).json({ error: error.message });
+    }
+}
     }
 }
