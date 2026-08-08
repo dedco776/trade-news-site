@@ -2,10 +2,9 @@ export default async function handler(req, res) {
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
     const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-    // API kalitlar mavjudligini tekshirish
     if (!FINNHUB_KEY || !GEMINI_KEY) {
         return res.status(500).json({ 
-            error: "API kalitlar topilmadi. Vercel Settings -> Environment Variables bo'limida FINNHUB_API_KEY va GEMINI_API_KEY mavjudligini tekshiring." 
+            error: "API kalitlar topilmadi. Vercel Settings -> Environment Variables bo'limini tekshiring." 
         });
     }
 
@@ -31,8 +30,8 @@ Javobni FAQAT to'g'ridan-to'g'ri JSON formatida qaytaring, boshqa hech qanday ma
 Yangiliklar:
 ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, url: n.url})))}`;
 
-        // 3. Gemini API So'rovi (v1 va gemini-1.5-flash)
-        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
+        // 3. Gemini API So'rovi (gemini-2.5-flash qo'llanildi)
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -46,7 +45,6 @@ ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, ur
 
         const aiData = await aiResponse.json();
 
-        // Gemini xatolik qaytarsa
         if (aiData.error) {
             console.error("Gemini Error:", aiData.error);
             return res.status(200).json({ 
@@ -60,7 +58,6 @@ ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, ur
 
         if (rawContent) {
             try {
-                // Javob tarkibidagi JSON qismini aniq ajratib olish
                 const jsonStart = rawContent.indexOf('{');
                 const jsonEnd = rawContent.lastIndexOf('}') + 1;
                 
