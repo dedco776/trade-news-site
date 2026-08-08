@@ -1,11 +1,10 @@
 export default async function handler(req, res) {
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
-    const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+    const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-    // API kalitlar mavjudligini tekshirish
-    if (!FINNHUB_KEY || !OPENROUTER_KEY) {
+    if (!FINNHUB_KEY || !GEMINI_KEY) {
         return res.status(500).json({ 
-            error: "API kalitlar topilmadi. Vercel Environment Variables bo'limini tekshiring." 
+            error: "API kalitlar topilmadi. Vercel Environment Variables bo'limida FINNHUB_API_KEY va GEMINI_API_KEY mavjudligini tekshiring." 
         });
     }
 
@@ -18,57 +17,51 @@ export default async function handler(req, res) {
         const newsData = await newsResponse.json();
         const topNews = newsData.slice(0, 5);
 
-        // 2. OpenRouter AI prompt
+        // 2. Gemini AI prompt
         const aiPrompt = `Siz moliya tahlilchisiz. Quyidagi yangiliklarni o'zbek tiliga o'giring va qisqa AI Swing-Tahlil bering.
-Javobni FAQAT to'g'ridan-to'g'ri JSON formatida qaytaring, boshqa hech qanday matn yozmang:
+Javobni FAQAT to'g'ridan-to'g'ri toza JSON formatida qaytaring, hech qanday markdown (masalan \`\`\`json) va qo'shimcha matn yozmang:
 {
   "analysis": "Umumiy o'zbekcha tahlil",
   "translated_news": [
-     {"headline": "O'zbekcha sarlavha", "summary": "O'zbekcha qisqa mazmun", "url": "original_url"}
+     {"headline": "O'zbekcha sarlavha", "summary": "O me o'zbekcha qisqa mazmun", "url": "original_url"}
   ]
 }
 
 Yangiliklar:
 ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, url: n.url})))}`;
 
-        const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        // Gemini 1.5 Flash API So'rovi
+        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${OPENROUTER_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://vercel.com', // OpenRouter talabi
-                'X-Title': 'Financial News App'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: "google/gemma-2-9b-it:free",
-                messages: [{ role: "user", content: aiPrompt }]
+                contents: [{
+                    parts: [{ text: aiPrompt }]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json" // Gemini JSON qaytarishini kafolatlaydi
+                }
             })
         });
 
         const aiData = await aiResponse.json();
-        
-        // OpenRouter xatolik qaytarganini tekshirish
+
         if (aiData.error) {
-            console.error("OpenRouter Error:", aiData.error);
+            console.error("Gemini Error:", aiData.error);
             return res.status(200).json({ 
                 news: topNews, 
-                analysis: "OpenRouter xatosi: " + (aiData.error.message || "Vaqtinchalik uzilish.") 
+                analysis: "Gemini xatosi: " + (aiData.error.message || "Vaqtinchalik uzilish.") 
             });
         }
 
-        const rawContent = aiData.choices?.[0]?.message?.content;
+        const rawContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
         let parsedData = null;
 
         if (rawContent) {
             try {
-                // JSON qismini aniq ajratib olish
-                const jsonStart = rawContent.indexOf('{');
-                const jsonEnd = rawContent.lastIndexOf('}') + 1;
-                
-                if (jsonStart !== -1 && jsonEnd > jsonStart) {
-                    const cleanJson = rawContent.substring(jsonStart, jsonEnd);
-                    parsedData = JSON.parse(cleanJson);
-                }
+                parsedData = JSON.parse(rawContent);
             } catch (e) {
                 console.error("JSON Parse Error:", e, "Raw Content:", rawContent);
             }
@@ -86,4 +79,4 @@ ${JSON.stringify(topNews.map(n => ({headline: n.headline, summary: n.summary, ur
         console.error("Server Error:", error);
         res.status(500).json({ error: error.message });
     }
-}
+                                  }
