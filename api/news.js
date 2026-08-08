@@ -18,6 +18,22 @@ export default async function handler(req, res) {
         }
     }
 
+    // Finnhub'dan aksiya real narxini olish funksiyasi
+    async function getStockQuote(sym) {
+        try {
+            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${FINNHUB_KEY}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.c && data.c > 0) {
+                    return data.c; // c - current price (joriy narx)
+                }
+            }
+        } catch (e) {
+            console.error(`Error fetching quote for ${sym}:`, e);
+        }
+        return null;
+    }
+
     try {
         const today = new Date().toISOString().split('T')[0];
         const pastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -49,46 +65,45 @@ export default async function handler(req, res) {
             };
         }));
 
-        // Dynamic Signal Generator (Asosiy qidirilgan aksiya uchun)
-        const basePrices = {
-            'AAPL': 225.0,
-            'NVDA': 120.0,
-            'TSLA': 210.0,
-            'SPUS': 59.0,
-            'HLAL': 42.0
-        };
+        // 2. Qidirilgan aksiya uchun REAL NARX VA SIGNAL
+        let currentPrice = await getStockQuote(symbol.toUpperCase());
+        if (!currentPrice) currentPrice = 200.00; // Fallback
 
-        const currentPrice = basePrices[symbol.toUpperCase()] || (Math.random() * 100 + 50);
         const isPositive = rawNews.length > 0 ? rawNews[0].headline.length % 2 === 0 : true;
-
         const action = isPositive ? 'BUY' : 'WAIT';
-        const entry = `$${currentPrice.toFixed(2)}`;
-        const tp = `$${(currentPrice * (isPositive ? 1.07 : 1.02)).toFixed(2)}`;
-        const sl = `$${(currentPrice * 0.95).toFixed(2)}`;
 
         const signal = {
             action: action,
-            entry: entry,
-            tp: tp,
-            sl: sl
+            entry: `$${currentPrice.toFixed(2)}`,
+            tp: `$${(currentPrice * (isPositive ? 1.07 : 1.02)).toFixed(2)}`,
+            sl: `$${(currentPrice * 0.95).toFixed(2)}`
         };
 
-        // TOP 5 BUY & SELL Aksiyalar Ro'yxati
-        const topBuy = [
-            { symbol: 'NVDA', entry: '$124.50', tp: '$135.00', sl: '$118.00' },
-            { symbol: 'AAPL', entry: '$225.00', tp: '$240.00', sl: '$215.00' },
-            { symbol: 'MSFT', entry: '$448.20', tp: '$475.00', sl: '$430.00' },
-            { symbol: 'AMZN', entry: '$186.10', tp: '$200.00', sl: '$178.00' },
-            { symbol: 'SPUS', entry: '$59.20',  tp: '$64.00',  sl: '$56.50' }
-        ];
+        // 3. TOP 5 BUY & SELL aksiyalar uchun REAL NARXLARNI hisoblash
+        const buySymbols = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'SPUS'];
+        const sellSymbols = ['TSLA', 'INTC', 'NKE', 'SBUX', 'PYPL'];
 
-        const topSell = [
-            { symbol: 'TSLA', entry: '$210.00', tp: '$190.00', sl: '$222.00' },
-            { symbol: 'INTC', entry: '$20.50',  tp: '$18.00',  sl: '$22.00' },
-            { symbol: 'NKE',  entry: '$73.00',  tp: '$67.00',  sl: '$76.50' },
-            { symbol: 'SBUX', entry: '$75.40',  tp: '$69.00',  sl: '$79.00' },
-            { symbol: 'PYPL', entry: '$64.10',  tp: '$58.00',  sl: '$67.50' }
-        ];
+        // Dynamic Top Buy Generator
+        const topBuy = await Promise.all(buySymbols.map(async (sym) => {
+            const price = (await getStockQuote(sym)) || 150.0;
+            return {
+                symbol: sym,
+                entry: `$${price.toFixed(2)}`,
+                tp: `$${(price * 1.07).toFixed(2)}`,
+                sl: `$${(price * 0.95).toFixed(2)}`
+            };
+        }));
+
+        // Dynamic Top Sell Generator
+        const topSell = await Promise.all(sellSymbols.map(async (sym) => {
+            const price = (await getStockQuote(sym)) || 100.0;
+            return {
+                symbol: sym,
+                entry: `$${price.toFixed(2)}`,
+                tp: `$${(price * 0.93).toFixed(2)}`,
+                sl: `$${(price * 1.05).toFixed(2)}`
+            };
+        }));
 
         return res.status(200).json({ 
             news: translatedNews, 
@@ -101,4 +116,4 @@ export default async function handler(req, res) {
         console.error("Server Error:", error);
         res.status(500).json({ error: error.message });
     }
-}
+    }
