@@ -3,49 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Islamic Swing Terminal - Moliya & Halol Investitsiya</title>
-    <!-- Tailwind CSS (Dizayn uchun) -->
+    <title>DEDCO TRADING | DCT Terminal</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome (Ikonkalar uchun) -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        /* Google Translate yashirish va stil berish */
+        .goog-te-combo { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; outline: none; font-weight: 600; font-size: 12px; cursor: pointer; }
+        .goog-logo-link, .goog-te-gadget span { display: none !important; }
+        .goog-te-gadget { color: transparent !important; }
+        iframe.goog-te-banner-frame { display: none !important; }
+        body { top: 0px !important; }
     </style>
 </head>
 <body class="min-h-screen pb-10">
 
     <!-- Header / Navbar -->
-    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 p-4 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
+    <header class="border-b border-slate-800 bg-slate-900/90 sticky top-0 z-50 p-4 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-4">
+            
+            <!-- DEDCO TRADING Brending -->
             <div class="flex items-center gap-3">
-                <i class="fa-solid me fa-chart-line text-emerald-400 text-2xl"></i>
-                <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                    Islamic Swing Terminal
-                </h1>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+                    DCT
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                        DEDCO TRADING
+                    </h1>
+                    <p class="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Halol Swing Terminal</p>
+                </div>
             </div>
-            <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1">
-                <i class="fa-solid fa-check-circle"></i> Halol Filtr
-            </span>
+            
+            <!-- O'ng taraf: Til tanlash va status -->
+            <div class="flex items-center gap-3">
+                <!-- Til Tanlash Vidjeti -->
+                <div class="flex items-center gap-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+                    <i class="fa-solid fa-globe text-cyan-400 text-xs ml-2"></i>
+                    <div id="google_translate_element"></div>
+                </div>
+                
+                <span class="hidden sm:flex bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-3 py-1.5 rounded-xl font-semibold items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halal text-emerald-400"></i> DCT Halol Filtr
+                </span>
+            </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Chap tomon: TradingView Grafik va Halol Aktivlar -->
+        <!-- Chap tomon: TradingView Grafik va Aktivlar -->
         <section class="lg:col-span-2 space-y-6">
             
-            <!-- Halol ETF va Aksiyalar Vidjeti -->
+            <!-- DCT Halol Aktivlar Grafigi -->
             <div class="glass-card rounded-2xl p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-mosque text-emerald-400"></i> Halol ETF & Aksiyalar
+                        <i class="fa-solid fa-chart-candlestick text-emerald-400"></i> DCT Grafik Tahlil
                     </h2>
                     <span class="text-xs text-slate-400">SPUS / HLAL / AAPL / NVDA</span>
                 </div>
                 
                 <!-- TradingView Symbol Overview Widget -->
-                <div class="tradingview-widget-container" style="height: 400px;">
+                <div class="tradingview-widget-container" style="height: 420px;">
                     <div id="tradingview_chart" style="height: 100%;"></div>
                     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
                     <script type="text/javascript">
@@ -66,56 +89,73 @@
                 </div>
             </div>
 
-            <!-- Kalit Ko'rsatkichlar (Market Overview) -->
+            <!-- DCT Muhim Ko'rsatkichlar -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="glass-card p-4 rounded-xl">
-                    <p class="text-xs text-slate-400">SPUS (S&P 500 Shariah)</p>
-                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol ETF</p>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-emerald-500">
+                    <p class="text-xs text-slate-400">DCT Halol ETF</p>
+                    <p class="text-base font-bold text-slate-200 mt-1">SPUS (S&P 500)</p>
                 </div>
-                <div class="glass-card p-4 rounded-xl">
-                    <p class="text-xs text-slate-400">HLAL (Wahed FTSE)</p>
-                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol ETF</p>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-emerald-500">
+                    <p class="text-xs text-slate-400">DCT Halol ETF</p>
+                    <p class="text-base font-bold text-slate-200 mt-1">HLAL (Wahed)</p>
                 </div>
-                <div class="glass-card p-4 rounded-xl">
-                    <p class="text-xs text-slate-400">NVDA (NVIDIA)</p>
-                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol Aksiya</p>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-cyan-500">
+                    <p class="text-xs text-slate-400">DCT Halol Aksiya</p>
+                    <p class="text-base font-bold text-slate-200 mt-1">NVDA (NVIDIA)</p>
                 </div>
-                <div class="glass-card p-4 rounded-xl">
-                    <p class="text-xs text-slate-400">AAPL (Apple)</p>
-                    <p class="text-lg font-bold text-emerald-400 mt-1">Halol Aksiya</p>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-cyan-500">
+                    <p class="text-xs text-slate-400">DCT Halol Aksiya</p>
+                    <p class="text-base font-bold text-slate-200 mt-1">AAPL (Apple)</p>
                 </div>
             </div>
 
         </section>
 
-        <!-- O'ng tomon: Yangiliklar bo'limi -->
+        <!-- O'ng tomon: DCT Bozor Yangiliklari -->
         <section class="space-y-4">
             <div class="glass-card rounded-2xl p-5">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold flex items-center gap-2">
-                        <i class="fa-solid fa-newspaper text-cyan-400"></i> Bozor Yangiliklari
+                        <i class="fa-solid fa-newspaper text-cyan-400"></i> DCT Bozor Yangiliklari
                     </h2>
-                    <button onclick="fetchNews()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs transition">
+                    <button onclick="fetchNews()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1">
                         <i class="fa-solid fa-rotate"></i> Yangilash
                     </button>
                 </div>
 
-                <!-- Yangiliklar ro'yxati chiqadigan joy -->
-                <div id="news-container" class="space-y-4 max-h-[600px] overflow-y-auto pr-1">
-                    <p class="text-slate-400 text-sm text-center py-8">Yangiliklarni yuklash uchun tugmani bosing...</p>
+                <!-- Bildirishnoma -->
+                <div class="mb-4 p-3 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-slate-300">
+                    <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i>
+                    Barcha yangiliklar ingliz tilida olinadi. Tildan foydalanish uchun tepadagi til tugmasidan **Uz**, **Ru** yoki **En**'ni tanlang.
+                </div>
+
+                <!-- Yangiliklar ro'yxati -->
+                <div id="news-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+                    <p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yangiliklar yuklanmoqda...</p>
                 </div>
             </div>
         </section>
 
     </main>
 
+    <!-- Google Translate Skripti (O'zbek, Rus, Ingliz) -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'uz,ru,en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
     <script>
         async function fetchNews() {
             const container = document.getElementById('news-container');
-            container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>`;
+            container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yangilanyapti...</p>`;
 
             try {
-                // Vercel backend API endpointingiz manzili
                 const response = await fetch('/api/news');
                 const data = await response.json();
 
@@ -125,9 +165,9 @@
                         container.innerHTML += `
                             <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-slate-600 transition">
                                 <h3 class="font-medium text-sm text-slate-200">${item.headline}</h3>
-                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${item.summary}</p>
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-2">${item.summary || ''}</p>
                                 <a href="${item.url}" target="_blank" class="inline-block mt-2 text-xs text-emerald-400 hover:underline">
-                                    Manbani o'qish <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                    Batafsil o'qish <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                                 </a>
                             </div>
                         `;
@@ -140,8 +180,7 @@
             }
         }
 
-        // Sahifa yuklanganda avtomatik yangiliklarni olish
         window.onload = fetchNews;
     </script>
 </body>
-</html>
+                            </html>
