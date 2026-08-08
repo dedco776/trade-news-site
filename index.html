@@ -8,15 +8,40 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; top: 0px !important; position: static !important; }
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        /* Google Translate yashirish va stil berish */
-        .goog-te-combo { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 6px 12px; border-radius: 8px; outline: none; font-weight: 600; font-size: 12px; cursor: pointer; }
-        .goog-logo-link, .goog-te-gadget span { display: none !important; }
-        .goog-te-gadget { color: transparent !important; }
-        iframe.goog-te-banner-frame { display: none !important; }
+        
+        /* GOOGLE TRANSLATE XUNUK BANNERLARINI YO'QOTISH (STRICT HIDE) */
+        .goog-te-banner-frame, 
+        .goog-te-banner,
+        .skiptranslate,
+        #goog-gt-tt,
+        .goog-te-balloon-skin { 
+            display: none !important; 
+            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+        }
+        
+        /* Brauzer yuqorisidagi bo'shliqni yo'qotish */
         body { top: 0px !important; }
+        .VIpgJd-yD34zb-Otf3ed-tw4E1d { display: none !important; }
+
+        /* Til dropdown menyusini chiroyli va qorong'u dizaynga moslash */
+        .goog-te-combo { 
+            background: #1e293b !important; 
+            color: #38bdf8 !important; 
+            border: 1px solid #334155 !important; 
+            padding: 4px 8px !important; 
+            border-radius: 8px !important; 
+            outline: none !important; 
+            font-weight: 600 !important; 
+            font-size: 11px !important; 
+            cursor: pointer !important; 
+        }
+        .goog-logo-link, .goog-te-gadget span, .goog-te-gadget { color: transparent !important; font-size: 0 !important; }
     </style>
 </head>
 <body class="min-h-screen pb-10">
@@ -40,8 +65,8 @@
             
             <!-- O'ng taraf: Til tanlash va status -->
             <div class="flex items-center gap-3">
-                <!-- Til Tanlash Vidjeti -->
-                <div class="flex items-center gap-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+                <!-- Ixcham Til Tanlash -->
+                <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
                     <i class="fa-solid fa-globe text-cyan-400 text-xs ml-2"></i>
                     <div id="google_translate_element"></div>
                 </div>
@@ -123,12 +148,6 @@
                     </button>
                 </div>
 
-                <!-- Bildirishnoma -->
-                <div class="mb-4 p-3 bg-slate-800/80 border border-slate-700/80 rounded-xl text-xs text-slate-300">
-                    <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i>
-                    Barcha yangiliklar ingliz tilida olinadi. Tildan foydalanish uchun tepadagi til tugmasidan **Uz**, **Ru** yoki **En**'ni tanlang.
-                </div>
-
                 <!-- Yangiliklar ro'yxati -->
                 <div id="news-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                     <p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yangiliklar yuklanmoqda...</p>
@@ -138,7 +157,7 @@
 
     </main>
 
-    <!-- Google Translate Skripti (O'zbek, Rus, Ingliz) -->
+    <!-- Google Translate Skripti -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
@@ -153,7 +172,7 @@
     <script>
         async function fetchNews() {
             const container = document.getElementById('news-container');
-            container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yangilanyapti...</p>`;
+            container.innerHTML = `<p class="text-slate-400 text-sm text-center py-8"><i class="fa-solid fa-spinner fa-spin"></i> Yuklanmoqda...</p>`;
 
             try {
                 const response = await fetch('/api/news');
@@ -183,4 +202,4 @@
         window.onload = fetchNews;
     </script>
 </body>
-                            </html>
+</html>
