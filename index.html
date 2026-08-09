@@ -44,25 +44,27 @@
       
       const [news, setNews] = useState([]);
       const [loadingNews, setLoadingNews] = useState(false);
-      const [stockPrice, setStockPrice] = useState(225.00);
+      const [stockPrice, setStockPrice] = useState(313.33);
 
-      // TOP 5 BUY & SELL ro'yxati va ularning nisbiy hisoblari
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
+      // Barcha tillar bo'yicha to'liq va toza tarjimalar jamlanmasi:
       const translations = {
         uz: {
           subtitle: "HALOL SWING TERMINAL",
           chartTitle: "DCT Grafik Tahlil",
           buyTitle: "TOP 5 BUY Signallar",
           sellTitle: "TOP 5 SELL Signallar",
-          analysisTitle: "Анализ Рынка и Сигнал",
-          entry: "ТОЧКА ВХОДА",
-          tp: "ТЕЙК ПРОФИТ",
-          sl: "СТОП ЛОСС",
-          tech: "Texnik Tahlil: Narx konsolidatsiya zonasida, aniq trend shakllanmaguncha kutgan ma'qul.",
-          fund: "Fundamental Tahlil: Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda.",
-          newsTitle: "DCT Новости Рынка",
+          analysisTitle: "Bozor Tahlili va Signal",
+          entry: "KIRISH NUQTASI",
+          tp: "TEYK PROFIT",
+          sl: "STOP LOSS",
+          techLabel: "Texnik Tahlil:",
+          techText: "Narx konsolidatsiya zonasida, aniq trend shakllanmaguncha kutgan ma'qul.",
+          fundLabel: "Fundamental Tahlil:",
+          fundText: "Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda.",
+          newsTitle: "DCT Bozor Yangiliklari",
           searchPlaceholder: "Aksiya tikerni kiriting (masalan: AAPL, NVDA)...",
           readMore: "Batafsil o'qish",
           loading: "Yuklanmoqda...",
@@ -77,8 +79,10 @@
           entry: "ТОЧКА ВХОДА",
           tp: "ТЕЙК ПРОФИТ",
           sl: "СТОП ЛОСС",
-          tech: "Технический Анализ: Цена в зоне консолидации, лучше подождать четкого тренда.",
-          fund: "Фундаментальный Анализ: На рынке преобладает неопределенность.",
+          techLabel: "Технический Анализ:",
+          techText: "Цена в зоне консолидации, лучше подождать четкого тренда.",
+          fundLabel: "Фундаментальный Анализ:",
+          fundText: "На рынке преобладает неопределенность и осторожность.",
           newsTitle: "DCT Новости Рынка",
           searchPlaceholder: "Введите тикер (например: AAPL, NVDA)...",
           readMore: "Читать далее",
@@ -94,8 +98,10 @@
           entry: "ENTRY POINT",
           tp: "TAKE PROFIT",
           sl: "STOP LOSS",
-          tech: "Technical Analysis: Price is in consolidation zone, better to wait for a clear trend.",
-          fund: "Fundamental Analysis: Uncertainty prevails in the market.",
+          techLabel: "Technical Analysis:",
+          techText: "Price is in consolidation zone, better to wait for a clear trend.",
+          fundLabel: "Fundamental Analysis:",
+          fundText: "Uncertainty prevails in the market.",
           newsTitle: "DCT Market News",
           searchPlaceholder: "Enter ticker (e.g. AAPL, NVDA)...",
           readMore: "Read more",
@@ -129,10 +135,9 @@
         }
       }
 
-      // Narxlar va signallarni real narx atrofiga dinamik hisoblash
-      const entryPrice = stockPrice ? stockPrice.toFixed(2) : "225.00";
-      const tpPrice = stockPrice ? (stockPrice * 1.05).toFixed(2) : "236.25";
-      const slPrice = stockPrice ? (stockPrice * 0.95).toFixed(2) : "213.75";
+      const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
+      const tpPrice = stockPrice ? (stockPrice * 1.05).toFixed(2) : "329.00";
+      const slPrice = stockPrice ? (stockPrice * 0.95).toFixed(2) : "297.66";
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-4 space-y-5">
@@ -196,8 +201,8 @@
             </div>
 
             <div className="text-[11px] space-y-1 text-slate-300 pt-1">
-              <p><strong className="text-emerald-400">● Texnik Tahlil:</strong> {t.tech}</p>
-              <p><strong className="text-cyan-400">● Fundamental Tahlil:</strong> {t.fund}</p>
+              <p><strong className="text-emerald-400">● {t.techLabel}</strong> {t.techText}</p>
+              <p><strong className="text-cyan-400">● {t.fundLabel}</strong> {t.fundText}</p>
             </div>
           </section>
 
@@ -217,8 +222,8 @@
                   >
                     <span className="font-bold text-slate-200">{sym}</span>
                     <div className="font-mono text-[11px] space-x-2">
-                      <span className="text-emerald-400">Entry: ${(stockPrice ? (stockPrice * 0.98).toFixed(2) : '124.50')}</span>
-                      <span className="text-cyan-400">TP: ${(stockPrice ? (stockPrice * 1.06).toFixed(2) : '135.00')}</span>
+                      <span className="text-emerald-400">Entry: ${(stockPrice ? (stockPrice * 0.98).toFixed(2) : '307.06')}</span>
+                      <span className="text-cyan-400">TP: ${(stockPrice ? (stockPrice * 1.06).toFixed(2) : '332.13')}</span>
                     </div>
                   </div>
                 ))}
@@ -239,8 +244,8 @@
                   >
                     <span className="font-bold text-slate-200">{sym}</span>
                     <div className="font-mono text-[11px] space-x-2">
-                      <span className="text-rose-400">Entry: ${(stockPrice ? (stockPrice * 1.02).toFixed(2) : '210.00')}</span>
-                      <span className="text-slate-400">SL: ${(stockPrice ? (stockPrice * 1.08).toFixed(2) : '222.00')}</span>
+                      <span className="text-rose-400">Entry: ${(stockPrice ? (stockPrice * 1.02).toFixed(2) : '319.60')}</span>
+                      <span className="text-slate-400">SL: ${(stockPrice ? (stockPrice * 1.08).toFixed(2) : '338.40')}</span>
                     </div>
                   </div>
                 ))}
@@ -292,4 +297,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-  </html>
+</html>
