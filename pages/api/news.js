@@ -1,4 +1,10 @@
+import Stripe from 'stripe';
+
 export default async function handler(req, res) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
     const { symbol = 'AAPL', lang = 'uz' } = req.query;
 
@@ -6,6 +12,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "FINNHUB_API_KEY topilmadi." });
     }
 
+    // Google Translate orqali avto-tarjima funksiyasi
     async function translateText(text, targetLang) {
         if (!text || targetLang === 'en') return text;
         try {
@@ -25,7 +32,7 @@ export default async function handler(req, res) {
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.c && data.c > 0) {
-                    return data.c; // c - current price (joriy narx)
+                    return data.c; // c - current price
                 }
             }
         } catch (e) {
@@ -79,11 +86,10 @@ export default async function handler(req, res) {
             sl: `$${(currentPrice * 0.95).toFixed(2)}`
         };
 
-        // 3. TOP 5 BUY & SELL aksiyalar uchun REAL NARXLARNI hisoblash
+        // 3. TOP 5 BUY & SELL aksiyalar uchun REAL NARXLAR
         const buySymbols = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'SPUS'];
         const sellSymbols = ['TSLA', 'INTC', 'NKE', 'SBUX', 'PYPL'];
 
-        // Dynamic Top Buy Generator
         const topBuy = await Promise.all(buySymbols.map(async (sym) => {
             const price = (await getStockQuote(sym)) || 150.0;
             return {
@@ -94,7 +100,6 @@ export default async function handler(req, res) {
             };
         }));
 
-        // Dynamic Top Sell Generator
         const topSell = await Promise.all(sellSymbols.map(async (sym) => {
             const price = (await getStockQuote(sym)) || 100.0;
             return {
@@ -114,6 +119,6 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error("Server Error:", error);
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
-    }
+}
