@@ -46,10 +46,23 @@
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
+      // Auth / Login State
+      const [user, setUser] = useState(null);
+      const [showAuthModal, setShowAuthModal] = useState(false);
+      const [isRegistering, setIsRegistering] = useState(false);
+      const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
+
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // Barcha tillar bo'yicha to'liq va toza tarjimalar jamlanmasi:
+      // Saqlangan user mavjudligini tekshirish (localStorage)
+      useEffect(() => {
+        const savedUser = localStorage.getItem('dct_user');
+        if (savedUser) {
+          try { setUser(JSON.parse(savedUser)); } catch (e) {}
+        }
+      }, []);
+
       const translations = {
         uz: {
           subtitle: "HALOL SWING TERMINAL",
@@ -68,7 +81,16 @@
           searchPlaceholder: "Aksiya tikerni kiriting (masalan: AAPL, NVDA)...",
           readMore: "Batafsil o'qish",
           loading: "Yuklanmoqda...",
-          noNews: "Yangiliklar topilmadi."
+          noNews: "Yangiliklar topilmadi.",
+          loginBtn: "Kirish",
+          logoutBtn: "Chiqish",
+          authModalTitleLogin: "Tizimga kirish",
+          authModalTitleReg: "Ro'yxatdan o'tish",
+          nameLabel: "Ismingiz",
+          emailLabel: "Email manzil",
+          passLabel: "Parol",
+          noAccount: "Hisobingiz yo'qmi? Ro'yxatdan o'ting",
+          hasAccount: "Hisobingiz bormi? Tizimga kiring"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -87,7 +109,16 @@
           searchPlaceholder: "Введите тикер (например: AAPL, NVDA)...",
           readMore: "Читать далее",
           loading: "Загрузка...",
-          noNews: "Новости не найдены."
+          noNews: "Новости не найдены.",
+          loginBtn: "Войти",
+          logoutBtn: "Выйти",
+          authModalTitleLogin: "Вход в систему",
+          authModalTitleReg: "Регистрация",
+          nameLabel: "Ваше имя",
+          emailLabel: "Email адрес",
+          passLabel: "Пароль",
+          noAccount: "Нет аккаунта? Зарегистрируйтесь",
+          hasAccount: "Уже есть аккаунт? Войдите"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -106,7 +137,16 @@
           searchPlaceholder: "Enter ticker (e.g. AAPL, NVDA)...",
           readMore: "Read more",
           loading: "Loading...",
-          noNews: "No news found."
+          noNews: "No news found.",
+          loginBtn: "Login",
+          logoutBtn: "Logout",
+          authModalTitleLogin: "Sign In",
+          authModalTitleReg: "Create Account",
+          nameLabel: "Your Name",
+          emailLabel: "Email Address",
+          passLabel: "Password",
+          noAccount: "Don't have an account? Register",
+          hasAccount: "Already have an account? Login"
         }
       };
 
@@ -135,6 +175,22 @@
         }
       }
 
+      function handleAuthSubmit(e) {
+        e.preventDefault();
+        const userData = {
+          name: isRegistering ? authForm.name || 'User' : authForm.email.split('@')[0],
+          email: authForm.email
+        };
+        setUser(userData);
+        localStorage.setItem('dct_user', JSON.stringify(userData));
+        setShowAuthModal(false);
+      }
+
+      function handleLogout() {
+        setUser(null);
+        localStorage.removeItem('dct_user');
+      }
+
       const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
       const tpPrice = stockPrice ? (stockPrice * 1.05).toFixed(2) : "329.00";
       const slPrice = stockPrice ? (stockPrice * 0.95).toFixed(2) : "297.66";
@@ -143,7 +199,7 @@
         <div className="max-w-5xl mx-auto px-4 py-4 space-y-5">
           
           {/* Header */}
-          <header className="flex justify-between items-center bg-cardDark/80 p-3.5 rounded-xl border border-borderDark">
+          <header className="flex justify-between items-center bg-cardDark/80 p-3.5 rounded-xl border border-borderDark flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-extrabold text-emerald-400 text-sm">
                 DCT
@@ -154,16 +210,38 @@
               </div>
             </div>
 
-            <div className="flex bg-slate-900/90 p-1 rounded-lg border border-borderDark text-xs font-semibold">
-              {['uz', 'ru', 'en'].map(lang => (
+            <div className="flex items-center gap-3">
+              {/* Login / User Status */}
+              {user ? (
+                <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1 rounded-lg">
+                  <i className="fa-solid fa-user text-emerald-400 text-xs"></i>
+                  <span className="text-xs font-semibold text-slate-200">{user.name}</span>
+                  <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:underline">
+                    <i className="fa-solid fa-right-from-bracket"></i>
+                  </button>
+                </div>
+              ) : (
                 <button 
-                  key={lang} 
-                  onClick={() => setCurrentLang(lang)}
-                  className={`px-3 py-1 rounded-md uppercase transition ${currentLang === lang ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'}`}
+                  onClick={() => setShowAuthModal(true)} 
+                  className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
                 >
-                  {lang}
+                  <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
+                  {t.loginBtn}
                 </button>
-              ))}
+              )}
+
+              {/* Language Switcher */}
+              <div className="flex bg-slate-900/90 p-1 rounded-lg border border-borderDark text-xs font-semibold">
+                {['uz', 'ru', 'en'].map(lang => (
+                  <button 
+                    key={lang} 
+                    onClick={() => setCurrentLang(lang)}
+                    className={`px-2.5 py-1 rounded-md uppercase transition ${currentLang === lang ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'}`}
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
             </div>
           </header>
 
@@ -290,6 +368,79 @@
             </div>
           </section>
 
+          {/* AUTH MODAL */}
+          {showAuthModal && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-cardDark border border-borderDark rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl relative">
+                
+                <button 
+                  onClick={() => setShowAuthModal(false)}
+                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-200 text-sm"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+
+                <h3 className="text-sm font-bold text-emerald-400">
+                  {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
+                </h3>
+
+                <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
+                  {isRegistering && (
+                    <div>
+                      <label className="text-slate-400 block mb-1">{t.nameLabel}</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={authForm.name}
+                        onChange={e => setAuthForm({...authForm, name: e.target.value})}
+                        className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">{t.emailLabel}</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={authForm.email}
+                      onChange={e => setAuthForm({...authForm, email: e.target.value})}
+                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">{t.passLabel}</label>
+                    <input 
+                      type="password" 
+                      required
+                      value={authForm.password}
+                      onChange={e => setAuthForm({...authForm, password: e.target.value})}
+                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 rounded-lg transition mt-2"
+                  >
+                    {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
+                  </button>
+                </form>
+
+                <div className="text-center pt-2 border-t border-borderDark">
+                  <button 
+                    onClick={() => setIsRegistering(!isRegistering)} 
+                    className="text-[11px] text-cyan-400 hover:underline"
+                  >
+                    {isRegistering ? t.hasAccount : t.noAccount}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
         </div>
       );
     }
@@ -297,4 +448,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-</html>
+  </html>
