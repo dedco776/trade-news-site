@@ -7,6 +7,7 @@
   <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
   <script>
     tailwind.config = {
       theme: {
@@ -37,6 +38,70 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    // --- TEKIN VA AVTONOM LOCAL DATABASE (IndexedDB Driver) ---
+    const DB_NAME = 'DedcoTradingDB';
+    const DB_VERSION = 1;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('users')) {
+            db.createObjectStore('users', { keyPath: 'email' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function registerUser(email, password, name) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('users', 'readwrite');
+        const store = tx.objectStore('users');
+        const checkReq = store.get(email);
+
+        checkReq.onsuccess = () => {
+          if (checkReq.result) {
+            reject(new Error("Bu email allaqachon ro'yxatdan o'tgan!"));
+          } else {
+            const newUser = {
+              email,
+              password, // Parol brauzerning xavfsiz local xotirasida saqlanadi
+              name: name || email.split('@')[0],
+              createdAt: new Date().toISOString()
+            };
+            store.add(newUser);
+            resolve(newUser);
+          }
+        };
+        checkReq.onerror = () => reject(checkReq.error);
+      });
+    }
+
+    async function loginUser(email, password) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('users', 'readonly');
+        const store = tx.objectStore('users');
+        const req = store.get(email);
+
+        req.onsuccess = () => {
+          const user = req.result;
+          if (!user) {
+            reject(new Error("Foydalanuvchi topilmadi!"));
+          } else if (user.password !== password) {
+            reject(new Error("Parol noto'g'ri!"));
+          } else {
+            resolve(user);
+          }
+        };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
     function App() {
       const [currentLang, setCurrentLang] = useState('uz');
       const [currentSymbol, setCurrentSymbol] = useState('AAPL');
@@ -46,7 +111,7 @@
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
-      // Auth / Login State
+      // Auth State
       const [user, setUser] = useState(null);
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [isRegistering, setIsRegistering] = useState(false);
@@ -57,15 +122,14 @@
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // Saqlangan user va session mavjudligini tekshirish
+      // Sessiyani tekshirish (Sahifa yangilanganda ham saqlanadi)
       useEffect(() => {
-        const savedSession = localStorage.getItem('dct_session');
-        if (savedSession) {
+        const savedUser = localStorage.getItem('dedco_active_user');
+        if (savedUser) {
           try {
-            const parsed = JSON.parse(savedSession);
-            setUser(parsed.user);
+            setUser(JSON.parse(savedUser));
           } catch (e) {
-            localStorage.removeItem('dct_session');
+            localStorage.removeItem('dedco_active_user');
           }
         }
       }, []);
@@ -182,44 +246,31 @@
         }
       }
 
-      // HAQIQIY AUTHENTICATION SUBMIT (Vercel API bilan)
+      // LOGIN / REGISTRATION ISHLASH MEXANIZMI
       async function handleAuthSubmit(e) {
         e.preventDefault();
         setAuthLoading(true);
         setAuthMessage({ type: '', text: '' });
 
         try {
-          const res = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: isRegistering ? 'register' : 'login',
-              email: authForm.email,
-              password: authForm.password,
-              name: authForm.name
-            })
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            throw new Error(data.error || 'Xatolik yuz berdi');
+          let userData;
+          if (isRegistering) {
+            userData = await registerUser(authForm.email, authForm.password, authForm.name);
+            setAuthMessage({ type: 'success', text: "Muvaffaqiyatli ro'yxatdan o'tdingiz!" });
+          } else {
+            userData = await loginUser(authForm.email, authForm.password);
+            setAuthMessage({ type: 'success', text: "Tizimga kirdingiz!" });
           }
 
-          // Sessiyani brauzerda saqlash
-          localStorage.setItem('dct_session', JSON.stringify({
-            token: data.token,
-            user: data.user
-          }));
+          const sessionData = { email: userData.email, name: userData.name };
+          setUser(sessionData);
+          localStorage.setItem('dedco_active_user', JSON.stringify(sessionData));
 
-          setUser(data.user);
-          setAuthMessage({ type: 'success', text: data.message });
-          
           setTimeout(() => {
             setShowAuthModal(false);
             setAuthForm({ email: '', password: '', name: '' });
             setAuthMessage({ type: '', text: '' });
-          }, 1000);
+          }, 800);
 
         } catch (err) {
           setAuthMessage({ type: 'error', text: err.message });
@@ -230,7 +281,7 @@
 
       function handleLogout() {
         setUser(null);
-        localStorage.removeItem('dct_session');
+        localStorage.removeItem('dedco_active_user');
       }
 
       const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
@@ -253,7 +304,6 @@
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Login / User Status */}
               {user ? (
                 <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1 rounded-lg">
                   <i className="fa-solid fa-user text-emerald-400 text-xs"></i>
@@ -272,7 +322,6 @@
                 </button>
               )}
 
-              {/* Language Switcher */}
               <div className="flex bg-slate-900/90 p-1 rounded-lg border border-borderDark text-xs font-semibold">
                 {['uz', 'ru', 'en'].map(lang => (
                   <button 
@@ -298,7 +347,7 @@
             </div>
           </section>
 
-          {/* Analysis & Signal Box */}
+          {/* Analysis Box */}
           <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-4">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
               <i className="fa-solid fa-circle-check text-[10px]"></i>
@@ -326,9 +375,8 @@
             </div>
           </section>
 
-          {/* TOP 5 BUY & SELL Signals */}
+          {/* Signals */}
           <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* BUY Signals */}
             <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
               <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
                 <i className="fa-solid fa-arrow-trend-up"></i> {t.buyTitle}
@@ -350,7 +398,6 @@
               </div>
             </div>
 
-            {/* SELL Signals */}
             <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
               <h3 className="text-xs font-bold text-rose-400 flex items-center gap-2">
                 <i className="fa-solid fa-arrow-trend-down"></i> {t.sellTitle}
@@ -373,7 +420,7 @@
             </div>
           </section>
 
-          {/* News Section */}
+          {/* News */}
           <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
             <h2 className="text-xs font-bold text-slate-200 flex items-center gap-2">
               <i className="fa-solid fa-newspaper text-cyan-400"></i> {t.newsTitle} ({currentSymbol})
@@ -502,4 +549,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-  </html>
+</html>
