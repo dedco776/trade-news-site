@@ -7,6 +7,10 @@
   <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- SUPABASE CLIENT CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -46,21 +50,61 @@
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
-      // Auth / Login State
+      // Supabase Client State
+      const [supabaseClient, setSupabaseClient] = useState(null);
+
+      // Auth State
       const [user, setUser] = useState(null);
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [isRegistering, setIsRegistering] = useState(false);
       const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
+      const [authLoading, setAuthLoading] = useState(false);
+      const [authError, setAuthError] = useState('');
 
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // Saqlangan user mavjudligini tekshirish (localStorage)
+      // 1. Vercel API'dan Key-Value ma'lumotlarini olish va Supabase-ni ishga tushirish
       useEffect(() => {
-        const savedUser = localStorage.getItem('dct_user');
-        if (savedUser) {
-          try { setUser(JSON.parse(savedUser)); } catch (e) {}
+        async function initSupabase() {
+          try {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            
+            if (config.supabaseUrl && config.supabaseAnonKey) {
+              const client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+              setSupabaseClient(client);
+
+              // Hozirgi sessiyani tekshirish
+              client.auth.getSession().then(({ data: { session } }) => {
+                if (session?.user) {
+                  setUser({
+                    id: session.user.id,
+                    email: session.user.email,
+                    name: session.user.user_metadata?.full_name || session.user.email.split('@')[0]
+                  });
+                }
+              });
+
+              // Auth holati o'zgarganda kuzatish
+              client.auth.onAuthStateChange((_event, session) => {
+                if (session?.user) {
+                  setUser({
+                    id: session.user.id,
+                    email: session.user.email,
+                    name: session.user.user_metadata?.full_name || session.user.email.split('@')[0]
+                  });
+                } else {
+                  setUser(null);
+                }
+              });
+            }
+          } catch (err) {
+            console.error("Config yuklashda xatolik:", err);
+          }
         }
+
+        initSupabase();
       }, []);
 
       const translations = {
@@ -175,20 +219,47 @@
         }
       }
 
-      function handleAuthSubmit(e) {
+      // HAQIQIY AUTH SUBMIT
+      async function handleAuthSubmit(e) {
         e.preventDefault();
-        const userData = {
-          name: isRegistering ? authForm.name || 'User' : authForm.email.split('@')[0],
-          email: authForm.email
-        };
-        setUser(userData);
-        localStorage.setItem('dct_user', JSON.stringify(userData));
-        setShowAuthModal(false);
+        if (!supabaseClient) return;
+
+        setAuthLoading(true);
+        setAuthError('');
+
+        try {
+          if (isRegistering) {
+            const { data, error } = await supabaseClient.auth.signUp({
+              email: authForm.email,
+              password: authForm.password,
+              options: {
+                data: { full_name: authForm.name }
+              }
+            });
+            if (error) throw error;
+            alert("Ro'yxatdan muvaffaqiyatli o'tdingiz!");
+          } else {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+              email: authForm.email,
+              password: authForm.password,
+            });
+            if (error) throw error;
+          }
+          setShowAuthModal(false);
+          setAuthForm({ email: '', password: '', name: '' });
+        } catch (err) {
+          setAuthError(err.message || 'Xatolik yuz berdi!');
+        } finally {
+          setAuthLoading(false);
+        }
       }
 
-      function handleLogout() {
-        setUser(null);
-        localStorage.removeItem('dct_user');
+      // LOGOUT
+      async function handleLogout() {
+        if (supabaseClient) {
+          await supabaseClient.auth.signOut();
+          setUser(null);
+        }
       }
 
       const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
@@ -384,6 +455,12 @@
                   {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
                 </h3>
 
+                {authError && (
+                  <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-2 rounded-lg">
+                    {authError}
+                  </div>
+                )}
+
                 <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
                   {isRegistering && (
                     <div>
@@ -422,15 +499,17 @@
 
                   <button 
                     type="submit" 
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 rounded-lg transition mt-2"
+                    disabled={authLoading}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 rounded-lg transition mt-2 flex items-center justify-center gap-2"
                   >
+                    {authLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
                     {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
                   </button>
                 </form>
 
                 <div className="text-center pt-2 border-t border-borderDark">
                   <button 
-                    onClick={() => setIsRegistering(!isRegistering)} 
+                    onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }} 
                     className="text-[11px] text-cyan-400 hover:underline"
                   >
                     {isRegistering ? t.hasAccount : t.noAccount}
@@ -448,4 +527,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-  </html>
+</html>
