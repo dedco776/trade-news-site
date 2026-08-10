@@ -7,10 +7,6 @@
   <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  
-  <!-- SUPABASE CLIENT CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
     tailwind.config = {
       theme: {
@@ -50,61 +46,28 @@
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
-      // Supabase Client State
-      const [supabaseClient, setSupabaseClient] = useState(null);
-
-      // Auth State
+      // Auth / Login State
       const [user, setUser] = useState(null);
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [isRegistering, setIsRegistering] = useState(false);
       const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
       const [authLoading, setAuthLoading] = useState(false);
-      const [authError, setAuthError] = useState('');
+      const [authMessage, setAuthMessage] = useState({ type: '', text: '' });
 
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // 1. Vercel API'dan Key-Value ma'lumotlarini olish va Supabase-ni ishga tushirish
+      // Saqlangan user va session mavjudligini tekshirish
       useEffect(() => {
-        async function initSupabase() {
+        const savedSession = localStorage.getItem('dct_session');
+        if (savedSession) {
           try {
-            const res = await fetch('/api/config');
-            const config = await res.json();
-            
-            if (config.supabaseUrl && config.supabaseAnonKey) {
-              const client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-              setSupabaseClient(client);
-
-              // Hozirgi sessiyani tekshirish
-              client.auth.getSession().then(({ data: { session } }) => {
-                if (session?.user) {
-                  setUser({
-                    id: session.user.id,
-                    email: session.user.email,
-                    name: session.user.user_metadata?.full_name || session.user.email.split('@')[0]
-                  });
-                }
-              });
-
-              // Auth holati o'zgarganda kuzatish
-              client.auth.onAuthStateChange((_event, session) => {
-                if (session?.user) {
-                  setUser({
-                    id: session.user.id,
-                    email: session.user.email,
-                    name: session.user.user_metadata?.full_name || session.user.email.split('@')[0]
-                  });
-                } else {
-                  setUser(null);
-                }
-              });
-            }
-          } catch (err) {
-            console.error("Config yuklashda xatolik:", err);
+            const parsed = JSON.parse(savedSession);
+            setUser(parsed.user);
+          } catch (e) {
+            localStorage.removeItem('dct_session');
           }
         }
-
-        initSupabase();
       }, []);
 
       const translations = {
@@ -219,47 +182,55 @@
         }
       }
 
-      // HAQIQIY AUTH SUBMIT
+      // HAQIQIY AUTHENTICATION SUBMIT (Vercel API bilan)
       async function handleAuthSubmit(e) {
         e.preventDefault();
-        if (!supabaseClient) return;
-
         setAuthLoading(true);
-        setAuthError('');
+        setAuthMessage({ type: '', text: '' });
 
         try {
-          if (isRegistering) {
-            const { data, error } = await supabaseClient.auth.signUp({
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: isRegistering ? 'register' : 'login',
               email: authForm.email,
               password: authForm.password,
-              options: {
-                data: { full_name: authForm.name }
-              }
-            });
-            if (error) throw error;
-            alert("Ro'yxatdan muvaffaqiyatli o'tdingiz!");
-          } else {
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-              email: authForm.email,
-              password: authForm.password,
-            });
-            if (error) throw error;
+              name: authForm.name
+            })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || 'Xatolik yuz berdi');
           }
-          setShowAuthModal(false);
-          setAuthForm({ email: '', password: '', name: '' });
+
+          // Sessiyani brauzerda saqlash
+          localStorage.setItem('dct_session', JSON.stringify({
+            token: data.token,
+            user: data.user
+          }));
+
+          setUser(data.user);
+          setAuthMessage({ type: 'success', text: data.message });
+          
+          setTimeout(() => {
+            setShowAuthModal(false);
+            setAuthForm({ email: '', password: '', name: '' });
+            setAuthMessage({ type: '', text: '' });
+          }, 1000);
+
         } catch (err) {
-          setAuthError(err.message || 'Xatolik yuz berdi!');
+          setAuthMessage({ type: 'error', text: err.message });
         } finally {
           setAuthLoading(false);
         }
       }
 
-      // LOGOUT
-      async function handleLogout() {
-        if (supabaseClient) {
-          await supabaseClient.auth.signOut();
-          setUser(null);
-        }
+      function handleLogout() {
+        setUser(null);
+        localStorage.removeItem('dct_session');
       }
 
       const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
@@ -287,7 +258,7 @@
                 <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1 rounded-lg">
                   <i className="fa-solid fa-user text-emerald-400 text-xs"></i>
                   <span className="text-xs font-semibold text-slate-200">{user.name}</span>
-                  <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:underline">
+                  <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:underline" title={t.logoutBtn}>
                     <i className="fa-solid fa-right-from-bracket"></i>
                   </button>
                 </div>
@@ -455,9 +426,13 @@
                   {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
                 </h3>
 
-                {authError && (
-                  <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-2 rounded-lg">
-                    {authError}
+                {authMessage.text && (
+                  <div className={`text-xs p-2.5 rounded-lg border ${
+                    authMessage.type === 'error' 
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' 
+                      : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  }`}>
+                    {authMessage.text}
                   </div>
                 )}
 
@@ -509,7 +484,7 @@
 
                 <div className="text-center pt-2 border-t border-borderDark">
                   <button 
-                    onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }} 
+                    onClick={() => { setIsRegistering(!isRegistering); setAuthMessage({ type: '', text: '' }); }} 
                     className="text-[11px] text-cyan-400 hover:underline"
                   >
                     {isRegistering ? t.hasAccount : t.noAccount}
@@ -527,4 +502,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-</html>
+  </html>
