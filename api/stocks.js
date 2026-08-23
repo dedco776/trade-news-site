@@ -21,25 +21,44 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     const token = (req.headers.authorization || "").replace("Bearer ", "");
-    if (!token) return res.status(401).json({ error: "Avval tizimga kiring" });
+    if (!token) return res.status(401).json({ error: "Aksiya yaratish uchun avval tizimga kiring" });
 
     const user = await getUserFromToken(token, supabaseUrl, serviceKey);
     if (!user) return res.status(401).json({ error: "Sessiya yaroqsiz, qayta kiring" });
 
-    const { name, ticker } = req.body || {};
+    const { name, ticker, category } = req.body || {};
     if (!name || !ticker || ticker.length > 6) {
       return res.status(400).json({ error: "Nom va qisqa ticker (max 6 belgi) kerak" });
     }
 
     await ensureProfile(user.id, supabaseUrl, serviceKey);
 
-    const existing = await fetch(
+    // 1. Bu user allaqachon aksiya yaratganmi?
+    const ownerCheck = await fetch(
       `${supabaseUrl}/rest/v1/user_stocks?owner_id=eq.${user.id}&select=id`,
       { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
     ).then((r) => r.json());
 
-    if (Array.isArray(existing) && existing.length > 0) {
-      return res.status(400).json({ error: "Siz allaqachon aksiya yaratgansiz" });
+    if (Array.isArray(ownerCheck) && ownerCheck.length > 0) {
+      return res.status(400).json({ error: "Siz allaqachon aksiya yaratgansiz — bitta userga faqat bitta aksiya ruxsat etiladi" });
+    }
+
+    // 2. Nom yoki ticker band emasmi? (katta-kichik harfga qaramay)
+    const tickerUpper = ticker.toUpperCase();
+    const [nameCheck, tickerCheck] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/user_stocks?name=ilike.${encodeURIComponent(name)}&select=id`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      }).then((r) => r.json()),
+      fetch(`${supabaseUrl}/rest/v1/user_stocks?ticker=eq.${tickerUpper}&select=id`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      }).then((r) => r.json())
+    ]);
+
+    if (Array.isArray(nameCheck) && nameCheck.length > 0) {
+      return res.status(400).json({ error: "Bu nom band, boshqasini tanlang" });
+    }
+    if (Array.isArray(tickerCheck) && tickerCheck.length > 0) {
+      return res.status(400).json({ error: "Bu ticker band, boshqasini tanlang" });
     }
 
     const insertRes = await fetch(`${supabaseUrl}/rest/v1/user_stocks`, {
@@ -53,7 +72,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         owner_id: user.id,
         name,
-        ticker: ticker.toUpperCase(),
+        ticker: tickerUpper,
+        category: category || "Boshqa",
         base_price: 10,
         current_price: 10,
         total_supply: 0
@@ -61,7 +81,7 @@ export default async function handler(req, res) {
     });
 
     if (!insertRes.ok) {
-      return res.status(400).json({ error: "Bu ticker band bo'lishi mumkin, boshqasini tanlang" });
+      return res.status(400).json({ error: "Nom yoki ticker band, yoki siz allaqachon aksiya yaratgansiz" });
     }
 
     const created = await insertRes.json();
