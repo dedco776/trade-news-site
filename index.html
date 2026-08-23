@@ -4,11 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DEDCO TRADING | Halal Swing Terminal</title>
-  <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Supabase JS (real auth backend) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
@@ -30,7 +28,6 @@
       }
     }
   </script>
-  <!-- React & Babel -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -48,16 +45,25 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // ====== SUPABASE SOZLAMALARI ======
-    // Bu ikkalasini o'zingizning Supabase loyihangizdan oling:
-    // Supabase Dashboard -> Project Settings -> API
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co"; // masalan: https://xxxxx.supabase.co
+    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMTkzMTgsImV4cCI6MjEwMTc5NTMxOH0.6T_pnwO5K0YLO58Cxw_CCsTDb-SJpaXwsml_OQpILP8";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // Savdo vaqti: Dushanba-Juma, 09:00-18:00, Toshkent vaqti (UTC+5)
+    function isMarketOpenNow() {
+      const now = new Date();
+      const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+      const tashkent = new Date(utcMs + 5 * 60 * 60000);
+      const day = tashkent.getDay();
+      const hour = tashkent.getHours();
+      if (day === 0 || day === 6) return false;
+      return hour >= 9 && hour < 18;
+    }
+
     function App() {
       const [currentLang, setCurrentLang] = useState('uz');
+      const [activeTab, setActiveTab] = useState('home');
       const [currentSymbol, setCurrentSymbol] = useState('AAPL');
       const [searchInput, setSearchInput] = useState('');
 
@@ -65,7 +71,6 @@
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
-      // Auth State
       const [user, setUser] = useState(null);
       const [authChecked, setAuthChecked] = useState(false);
       const [showAuthModal, setShowAuthModal] = useState(false);
@@ -74,10 +79,22 @@
       const [authLoading, setAuthLoading] = useState(false);
       const [authMessage, setAuthMessage] = useState({ type: '', text: '' });
 
+      // Demo Aksiyalar Bozori state
+      const [marketOpen, setMarketOpen] = useState(isMarketOpenNow());
+      const [demoStocks, setDemoStocks] = useState([]);
+      const [loadingStocks, setLoadingStocks] = useState(false);
+      const [createForm, setCreateForm] = useState({ name: '', ticker: '' });
+      const [createLoading, setCreateLoading] = useState(false);
+      const [createMsg, setCreateMsg] = useState({ type: '', text: '' });
+      const [tradeQty, setTradeQty] = useState({});
+      const [tradeLoading, setTradeLoading] = useState(null);
+      const [tradeMsg, setTradeMsg] = useState({ type: '', text: '' });
+      const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [] });
+      const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // Supabase sessiyasini kuzatish (sahifa yangilanganda ham saqlanadi)
       useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
           if (data?.session?.user) {
@@ -100,12 +117,20 @@
           }
         });
 
-        return () => listener?.subscription?.unsubscribe();
+        const marketTimer = setInterval(() => setMarketOpen(isMarketOpenNow()), 60000);
+
+        return () => {
+          listener?.subscription?.unsubscribe();
+          clearInterval(marketTimer);
+        };
       }, []);
 
       const translations = {
         uz: {
           subtitle: "HALOL SWING TERMINAL",
+          navHome: "Bosh sahifa",
+          navMarket: "Aksiyalar Bozori",
+          navPortfolio: "Portfolio",
           chartTitle: "DCT Grafik Tahlil",
           buyTitle: "TOP 5 BUY Signallar",
           sellTitle: "TOP 5 SELL Signallar",
@@ -131,10 +156,33 @@
           passLabel: "Parol",
           noAccount: "Hisobingiz yo'qmi? Ro'yxatdan o'ting",
           hasAccount: "Hisobingiz bormi? Tizimga kiring",
-          confirmEmail: "Ro'yxatdan o'tdingiz! Emailingizni tasdiqlang, so'ng tizimga kiring."
+          confirmEmail: "Ro'yxatdan o'tdingiz! Emailingizni tasdiqlang, so'ng tizimga kiring.",
+          marketOpenLabel: "Bozor OCHIQ",
+          marketClosedLabel: "Bozor YOPIQ",
+          marketHoursNote: "Savdo vaqti: Dush-Juma, 09:00-18:00 (Toshkent vaqti)",
+          demoNote: "Bu demo/soxta pul — o'rganish va tajriba uchun, haqiqiy pul emas.",
+          yourBalance: "Balansingiz",
+          createStockTitle: "O'z aksiyangizni yarating",
+          stockNameLabel: "Aksiya nomi",
+          tickerLabel: "Ticker (masalan: DYB)",
+          createBtn: "Aksiya yaratish",
+          alreadyHaveStock: "Siz allaqachon bitta aksiya yaratgansiz",
+          allStocksTitle: "Barcha demo aksiyalar",
+          noStocks: "Hali hech kim aksiya yaratmagan",
+          buyBtn: "Sotib olish",
+          sellBtn: "Sotish",
+          qtyLabel: "Miqdor",
+          loginToTrade: "Savdo qilish uchun tizimga kiring",
+          portfolioTitle: "Mening Portfolio",
+          yourHoldings: "Sizning ulushlaringiz",
+          noHoldings: "Hali hech qanday ulushingiz yo'q",
+          shares: "ulush"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
+          navHome: "Главная",
+          navMarket: "Рынок Акций",
+          navPortfolio: "Портфель",
           chartTitle: "DCT График Анализ",
           buyTitle: "ТОП 5 BUY Сигналы",
           sellTitle: "ТОП 5 SELL Сигналы",
@@ -160,10 +208,33 @@
           passLabel: "Пароль",
           noAccount: "Нет аккаунта? Зарегистрируйтесь",
           hasAccount: "Уже есть аккаунт? Войдите",
-          confirmEmail: "Регистрация прошла! Подтвердите email, затем войдите."
+          confirmEmail: "Регистрация прошла! Подтвердите email, затем войдите.",
+          marketOpenLabel: "Рынок ОТКРЫТ",
+          marketClosedLabel: "Рынок ЗАКРЫТ",
+          marketHoursNote: "Время торгов: Пн-Пт, 09:00-18:00 (по Ташкенту)",
+          demoNote: "Это демо-деньги — только для практики, не настоящие.",
+          yourBalance: "Ваш баланс",
+          createStockTitle: "Создайте свою акцию",
+          stockNameLabel: "Название акции",
+          tickerLabel: "Тикер (например: DYB)",
+          createBtn: "Создать акцию",
+          alreadyHaveStock: "Вы уже создали одну акцию",
+          allStocksTitle: "Все демо-акции",
+          noStocks: "Пока никто не создал акцию",
+          buyBtn: "Купить",
+          sellBtn: "Продать",
+          qtyLabel: "Количество",
+          loginToTrade: "Войдите, чтобы торговать",
+          portfolioTitle: "Мой Портфель",
+          yourHoldings: "Ваши доли",
+          noHoldings: "У вас пока нет долей",
+          shares: "шт."
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
+          navHome: "Home",
+          navMarket: "Stock Market",
+          navPortfolio: "Portfolio",
           chartTitle: "DCT Chart Analysis",
           buyTitle: "TOP 5 BUY Signals",
           sellTitle: "TOP 5 SELL Signals",
@@ -189,7 +260,27 @@
           passLabel: "Password",
           noAccount: "Don't have an account? Register",
           hasAccount: "Already have an account? Login",
-          confirmEmail: "Registered! Please confirm your email, then log in."
+          confirmEmail: "Registered! Please confirm your email, then log in.",
+          marketOpenLabel: "Market OPEN",
+          marketClosedLabel: "Market CLOSED",
+          marketHoursNote: "Trading hours: Mon-Fri, 09:00-18:00 (Tashkent time)",
+          demoNote: "This is demo money for practice only, not real currency.",
+          yourBalance: "Your Balance",
+          createStockTitle: "Create your own stock",
+          stockNameLabel: "Stock name",
+          tickerLabel: "Ticker (e.g. DYB)",
+          createBtn: "Create Stock",
+          alreadyHaveStock: "You've already created one stock",
+          allStocksTitle: "All demo stocks",
+          noStocks: "No one has created a stock yet",
+          buyBtn: "Buy",
+          sellBtn: "Sell",
+          qtyLabel: "Quantity",
+          loginToTrade: "Log in to trade",
+          portfolioTitle: "My Portfolio",
+          yourHoldings: "Your holdings",
+          noHoldings: "You don't own any shares yet",
+          shares: "shares"
         }
       };
 
@@ -198,6 +289,11 @@
       useEffect(() => {
         fetchData(currentSymbol, currentLang);
       }, [currentSymbol, currentLang]);
+
+      useEffect(() => {
+        if (activeTab === 'market') fetchStocks();
+        if (activeTab === 'portfolio' && user) fetchPortfolio();
+      }, [activeTab, user]);
 
       async function fetchData(symbol, lang) {
         setLoadingNews(true);
@@ -212,13 +308,97 @@
         setLoadingNews(false);
       }
 
+      async function getAuthToken() {
+        const { data } = await supabase.auth.getSession();
+        return data?.session?.access_token || null;
+      }
+
+      async function fetchStocks() {
+        setLoadingStocks(true);
+        try {
+          const res = await fetch('/api/stocks');
+          const data = await res.json();
+          setDemoStocks(data.stocks || []);
+        } catch (e) {
+          console.error(e);
+        }
+        setLoadingStocks(false);
+      }
+
+      async function fetchPortfolio() {
+        setLoadingPortfolio(true);
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const res = await fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setPortfolio({ balance: data.balance ?? 100, holdings: data.holdings || [] });
+        } catch (e) {
+          console.error(e);
+        }
+        setLoadingPortfolio(false);
+      }
+
+      async function handleCreateStock(e) {
+        e.preventDefault();
+        setCreateLoading(true);
+        setCreateMsg({ type: '', text: '' });
+        try {
+          const token = await getAuthToken();
+          if (!token) {
+            setCreateMsg({ type: 'error', text: t.loginToTrade });
+            setCreateLoading(false);
+            return;
+          }
+          const res = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(createForm)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Xatolik');
+          setCreateMsg({ type: 'success', text: "Aksiya yaratildi!" });
+          setCreateForm({ name: '', ticker: '' });
+          fetchStocks();
+        } catch (err) {
+          setCreateMsg({ type: 'error', text: err.message });
+        }
+        setCreateLoading(false);
+      }
+
+      async function handleTrade(stockId, type) {
+        setTradeLoading(stockId + type);
+        setTradeMsg({ type: '', text: '' });
+        try {
+          const token = await getAuthToken();
+          if (!token) {
+            setTradeMsg({ type: 'error', text: t.loginToTrade });
+            setTradeLoading(null);
+            return;
+          }
+          const qty = parseInt(tradeQty[stockId] || '1', 10);
+          const res = await fetch('/api/trade', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ stock_id: stockId, type, quantity: qty })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Xatolik');
+          setTradeMsg({ type: 'success', text: type === 'buy' ? "Sotib olindi!" : "Sotildi!" });
+          fetchStocks();
+          fetchPortfolio();
+        } catch (err) {
+          setTradeMsg({ type: 'error', text: err.message });
+        }
+        setTradeLoading(null);
+      }
+
       function handleSearch(e) {
         if (e.key === 'Enter' && searchInput) {
           setCurrentSymbol(searchInput.toUpperCase());
         }
       }
 
-      // LOGIN / RO'YXATDAN O'TISH — endi Supabase Auth orqali (real backend)
       async function handleAuthSubmit(e) {
         e.preventDefault();
         setAuthLoading(true);
@@ -233,7 +413,6 @@
             });
             if (error) throw error;
 
-            // Agar Supabase'da "Confirm email" yoqilgan bo'lsa, session bo'lmaydi
             if (!data.session) {
               setAuthMessage({ type: 'success', text: t.confirmEmail });
               setAuthLoading(false);
@@ -322,126 +501,307 @@
             </div>
           </header>
 
-          {/* Chart Section */}
-          <section className="bg-cardDark p-4 rounded-xl border border-borderDark">
-            <h2 className="text-sm font-bold text-slate-200 mb-3">{t.chartTitle}</h2>
-            <div className="w-full h-[400px] rounded-lg overflow-hidden border border-borderDark">
-              <iframe
-                src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${currentSymbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC`}
-                className="w-full h-full border-0"
-              ></iframe>
-            </div>
-          </section>
+          {/* Nav Menu */}
+          <nav className="flex bg-cardDark p-1.5 rounded-xl border border-borderDark gap-1">
+            {[
+              { key: 'home', label: t.navHome, icon: 'fa-house' },
+              { key: 'market', label: t.navMarket, icon: 'fa-chart-line' },
+              { key: 'portfolio', label: t.navPortfolio, icon: 'fa-wallet' }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition ${
+                  activeTab === tab.key
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <i className={`fa-solid ${tab.icon} text-[10px]`}></i>
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
-          {/* Analysis Box */}
-          <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-4">
-            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-              <i className="fa-solid fa-circle-check text-[10px]"></i>
-              <span>{currentSymbol} {t.analysisTitle}</span>
-            </div>
+          {/* ============ HOME TAB ============ */}
+          {activeTab === 'home' && (
+            <div className="space-y-5 animate-in">
+              <section className="bg-cardDark p-4 rounded-xl border border-borderDark">
+                <h2 className="text-sm font-bold text-slate-200 mb-3">{t.chartTitle}</h2>
+                <div className="w-full h-[400px] rounded-lg overflow-hidden border border-borderDark">
+                  <iframe
+                    src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${currentSymbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC`}
+                    className="w-full h-full border-0"
+                  ></iframe>
+                </div>
+              </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-emerald-500/30 transition">
-                <p className="text-[10px] text-slate-400 font-semibold">{t.entry}</p>
-                <p className="text-emerald-400 font-bold text-base mt-1">${entryPrice}</p>
-              </div>
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-cyan-500/30 transition">
-                <p className="text-[10px] text-slate-400 font-semibold">{t.tp}</p>
-                <p className="text-cyan-400 font-bold text-base mt-1">${tpPrice}</p>
-              </div>
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-rose-500/30 transition">
-                <p className="text-[10px] text-slate-400 font-semibold">{t.sl}</p>
-                <p className="text-rose-400 font-bold text-base mt-1">${slPrice}</p>
-              </div>
-            </div>
+              <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-4">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                  <i className="fa-solid fa-circle-check text-[10px]"></i>
+                  <span>{currentSymbol} {t.analysisTitle}</span>
+                </div>
 
-            <div className="text-[11px] space-y-1 text-slate-300 pt-1">
-              <p><strong className="text-emerald-400">● {t.techLabel}</strong> {t.techText}</p>
-              <p><strong className="text-cyan-400">● {t.fundLabel}</strong> {t.fundText}</p>
-            </div>
-          </section>
-
-          {/* Signals */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
-              <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                <i className="fa-solid fa-arrow-trend-up"></i> {t.buyTitle}
-              </h3>
-              <div className="space-y-2">
-                {top5BuyList.map((sym) => (
-                  <div
-                    key={sym}
-                    onClick={() => setCurrentSymbol(sym)}
-                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-emerald-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
-                  >
-                    <span className="font-bold text-slate-200">{sym}</span>
-                    <div className="font-mono text-[11px] space-x-2">
-                      <span className="text-emerald-400">Entry: ${(stockPrice ? (stockPrice * 0.98).toFixed(2) : '307.06')}</span>
-                      <span className="text-cyan-400">TP: ${(stockPrice ? (stockPrice * 1.06).toFixed(2) : '332.13')}</span>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-emerald-500/30 transition">
+                    <p className="text-[10px] text-slate-400 font-semibold">{t.entry}</p>
+                    <p className="text-emerald-400 font-bold text-base mt-1">${entryPrice}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
-              <h3 className="text-xs font-bold text-rose-400 flex items-center gap-2">
-                <i className="fa-solid fa-arrow-trend-down"></i> {t.sellTitle}
-              </h3>
-              <div className="space-y-2">
-                {top5SellList.map((sym) => (
-                  <div
-                    key={sym}
-                    onClick={() => setCurrentSymbol(sym)}
-                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-rose-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
-                  >
-                    <span className="font-bold text-slate-200">{sym}</span>
-                    <div className="font-mono text-[11px] space-x-2">
-                      <span className="text-rose-400">Entry: ${(stockPrice ? (stockPrice * 1.02).toFixed(2) : '319.60')}</span>
-                      <span className="text-slate-400">SL: ${(stockPrice ? (stockPrice * 1.08).toFixed(2) : '338.40')}</span>
-                    </div>
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-cyan-500/30 transition">
+                    <p className="text-[10px] text-slate-400 font-semibold">{t.tp}</p>
+                    <p className="text-cyan-400 font-bold text-base mt-1">${tpPrice}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* News */}
-          <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
-            <h2 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-              <i className="fa-solid fa-newspaper text-cyan-400"></i> {t.newsTitle} ({currentSymbol})
-            </h2>
-
-            <input
-              type="text"
-              placeholder={t.searchPlaceholder}
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-              onKeyDown={handleSearch}
-              className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
-            />
-
-            <div className="space-y-3 pt-2">
-              {loadingNews ? (
-                <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
-              ) : news.length > 0 ? (
-                news.map((item) => (
-                  <div key={item.id} className="p-3 bg-slate-900/60 rounded-lg border border-borderDark space-y-1.5 hover:border-slate-600 transition">
-                    <h4 className="font-bold text-xs text-slate-200 leading-snug">{item.headline}</h4>
-                    <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">{item.summary}</p>
-                    <div className="pt-1 flex justify-between items-center text-[10px]">
-                      <span className="text-slate-500">{new Date(item.datetime * 1000).toLocaleDateString()}</span>
-                      <a href={item.url} target="_blank" rel="noreferrer" className="text-emerald-400 font-semibold hover:underline flex items-center gap-1">
-                        {t.readMore} <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                      </a>
-                    </div>
+                  <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-rose-500/30 transition">
+                    <p className="text-[10px] text-slate-400 font-semibold">{t.sl}</p>
+                    <p className="text-rose-400 font-bold text-base mt-1">${slPrice}</p>
                   </div>
-                ))
+                </div>
+
+                <div className="text-[11px] space-y-1 text-slate-300 pt-1">
+                  <p><strong className="text-emerald-400">● {t.techLabel}</strong> {t.techText}</p>
+                  <p><strong className="text-cyan-400">● {t.fundLabel}</strong> {t.fundText}</p>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                  <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                    <i className="fa-solid fa-arrow-trend-up"></i> {t.buyTitle}
+                  </h3>
+                  <div className="space-y-2">
+                    {top5BuyList.map((sym) => (
+                      <div
+                        key={sym}
+                        onClick={() => setCurrentSymbol(sym)}
+                        className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-emerald-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
+                      >
+                        <span className="font-bold text-slate-200">{sym}</span>
+                        <div className="font-mono text-[11px] space-x-2">
+                          <span className="text-emerald-400">Entry: ${(stockPrice ? (stockPrice * 0.98).toFixed(2) : '307.06')}</span>
+                          <span className="text-cyan-400">TP: ${(stockPrice ? (stockPrice * 1.06).toFixed(2) : '332.13')}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                  <h3 className="text-xs font-bold text-rose-400 flex items-center gap-2">
+                    <i className="fa-solid fa-arrow-trend-down"></i> {t.sellTitle}
+                  </h3>
+                  <div className="space-y-2">
+                    {top5SellList.map((sym) => (
+                      <div
+                        key={sym}
+                        onClick={() => setCurrentSymbol(sym)}
+                        className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-rose-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
+                      >
+                        <span className="font-bold text-slate-200">{sym}</span>
+                        <div className="font-mono text-[11px] space-x-2">
+                          <span className="text-rose-400">Entry: ${(stockPrice ? (stockPrice * 1.02).toFixed(2) : '319.60')}</span>
+                          <span className="text-slate-400">SL: ${(stockPrice ? (stockPrice * 1.08).toFixed(2) : '338.40')}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                <h2 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                  <i className="fa-solid fa-newspaper text-cyan-400"></i> {t.newsTitle} ({currentSymbol})
+                </h2>
+
+                <input
+                  type="text"
+                  placeholder={t.searchPlaceholder}
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  onKeyDown={handleSearch}
+                  className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                />
+
+                <div className="space-y-3 pt-2">
+                  {loadingNews ? (
+                    <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                  ) : news.length > 0 ? (
+                    news.map((item) => (
+                      <div key={item.id} className="p-3 bg-slate-900/60 rounded-lg border border-borderDark space-y-1.5 hover:border-slate-600 transition">
+                        <h4 className="font-bold text-xs text-slate-200 leading-snug">{item.headline}</h4>
+                        <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">{item.summary}</p>
+                        <div className="pt-1 flex justify-between items-center text-[10px]">
+                          <span className="text-slate-500">{new Date(item.datetime * 1000).toLocaleDateString()}</span>
+                          <a href={item.url} target="_blank" rel="noreferrer" className="text-emerald-400 font-semibold hover:underline flex items-center gap-1">
+                            {t.readMore} <i className="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                          </a>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 py-2 text-center">{t.noNews}</p>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* ============ MARKET TAB (Demo Aksiyalar Bozori) ============ */}
+          {activeTab === 'market' && (
+            <div className="space-y-5 animate-in">
+
+              {/* Market status */}
+              <section className={`p-4 rounded-xl border flex items-center justify-between flex-wrap gap-2 ${marketOpen ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-rose-500/10 border-rose-500/40'}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${marketOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+                  <span className={`text-xs font-bold ${marketOpen ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {marketOpen ? t.marketOpenLabel : t.marketClosedLabel}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400">{t.marketHoursNote}</span>
+              </section>
+
+              <p className="text-[10px] text-slate-500 italic px-1">{t.demoNote}</p>
+
+              {/* Create stock */}
+              <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                  <i className="fa-solid fa-plus"></i> {t.createStockTitle}
+                </h3>
+
+                {createMsg.text && (
+                  <div className={`text-xs p-2.5 rounded-lg border ${createMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                    {createMsg.text}
+                  </div>
+                )}
+
+                {user ? (
+                  <form onSubmit={handleCreateStock} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <input
+                      type="text" required placeholder={t.stockNameLabel}
+                      value={createForm.name}
+                      onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                      className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition md:col-span-1"
+                    />
+                    <input
+                      type="text" required maxLength={6} placeholder={t.tickerLabel}
+                      value={createForm.ticker}
+                      onChange={e => setCreateForm({ ...createForm, ticker: e.target.value.toUpperCase() })}
+                      className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition md:col-span-1"
+                    />
+                    <button
+                      type="submit" disabled={createLoading}
+                      className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition text-xs flex items-center justify-center gap-2 md:col-span-1"
+                    >
+                      {createLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
+                      {t.createBtn}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-xs text-slate-500">{t.loginToTrade}</p>
+                )}
+              </section>
+
+              {/* All stocks list */}
+              <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                  <i className="fa-solid fa-list"></i> {t.allStocksTitle}
+                </h3>
+
+                {tradeMsg.text && (
+                  <div className={`text-xs p-2.5 rounded-lg border ${tradeMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                    {tradeMsg.text}
+                  </div>
+                )}
+
+                {loadingStocks ? (
+                  <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                ) : demoStocks.length > 0 ? (
+                  <div className="space-y-2">
+                    {demoStocks.map((stock) => (
+                      <div key={stock.id} className="bg-slate-900/70 p-3 rounded-lg border border-borderDark space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-slate-200 text-xs">{stock.ticker}</span>
+                            <span className="text-slate-500 text-[10px] ml-2">{stock.name}</span>
+                          </div>
+                          <span className="text-emerald-400 font-bold text-sm">${parseFloat(stock.current_price).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number" min="1" max="50" placeholder={t.qtyLabel}
+                            value={tradeQty[stock.id] || ''}
+                            onChange={e => setTradeQty({ ...tradeQty, [stock.id]: e.target.value })}
+                            className="w-20 bg-slate-950 border border-borderDark rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                          />
+                          <button
+                            onClick={() => handleTrade(stock.id, 'buy')}
+                            disabled={!user || !marketOpen || tradeLoading === stock.id + 'buy'}
+                            className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-1.5 rounded-lg text-[11px] font-bold transition"
+                          >
+                            {t.buyBtn}
+                          </button>
+                          <button
+                            onClick={() => handleTrade(stock.id, 'sell')}
+                            disabled={!user || !marketOpen || tradeLoading === stock.id + 'sell'}
+                            className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-1.5 rounded-lg text-[11px] font-bold transition"
+                          >
+                            {t.sellBtn}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 py-2 text-center">{t.noStocks}</p>
+                )}
+              </section>
+            </div>
+          )}
+
+          {/* ============ PORTFOLIO TAB ============ */}
+          {activeTab === 'portfolio' && (
+            <div className="space-y-5 animate-in">
+              {!user ? (
+                <section className="bg-cardDark p-6 rounded-xl border border-borderDark text-center">
+                  <p className="text-xs text-slate-500">{t.loginToTrade}</p>
+                </section>
               ) : (
-                <p className="text-xs text-slate-500 py-2 text-center">{t.noNews}</p>
+                <React.Fragment>
+                  <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 text-center">
+                    <p className="text-[10px] text-slate-400 font-semibold">{t.yourBalance}</p>
+                    <p className="text-emerald-400 font-bold text-2xl mt-1">
+                      {loadingPortfolio ? <i className="fa-solid fa-spinner fa-spin text-base"></i> : `$${parseFloat(portfolio.balance).toFixed(2)}`}
+                    </p>
+                  </section>
+
+                  <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                    <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                      <i className="fa-solid fa-briefcase"></i> {t.yourHoldings}
+                    </h3>
+                    {loadingPortfolio ? (
+                      <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                    ) : portfolio.holdings.length > 0 ? (
+                      <div className="space-y-2">
+                        {portfolio.holdings.map((h) => (
+                          <div key={h.id} className="bg-slate-900/70 p-3 rounded-lg border border-borderDark flex justify-between items-center">
+                            <div>
+                              <span className="font-bold text-slate-200 text-xs">{h.user_stocks?.ticker}</span>
+                              <span className="text-slate-500 text-[10px] ml-2">{h.quantity} {t.shares}</span>
+                            </div>
+                            <span className="text-emerald-400 font-bold text-xs">
+                              ${(parseFloat(h.quantity) * parseFloat(h.user_stocks?.current_price || 0)).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 py-2 text-center">{t.noHoldings}</p>
+                    )}
+                  </section>
+                </React.Fragment>
               )}
             </div>
-          </section>
+          )}
 
           {/* AUTH MODAL */}
           {showAuthModal && (
