@@ -31,6 +31,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
     @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -83,7 +84,7 @@
       const [marketOpen, setMarketOpen] = useState(isMarketOpenNow());
       const [demoStocks, setDemoStocks] = useState([]);
       const [loadingStocks, setLoadingStocks] = useState(false);
-      const [createForm, setCreateForm] = useState({ name: '', ticker: '' });
+      const [createForm, setCreateForm] = useState({ name: '', ticker: '', category: 'Texnologiya' });
       const [createLoading, setCreateLoading] = useState(false);
       const [createMsg, setCreateMsg] = useState({ type: '', text: '' });
       const [tradeQty, setTradeQty] = useState({});
@@ -91,6 +92,20 @@
       const [tradeMsg, setTradeMsg] = useState({ type: '', text: '' });
       const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [] });
       const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+      const [selectedStockId, setSelectedStockId] = useState(null);
+      const [stockDetail, setStockDetail] = useState(null);
+      const [loadingDetail, setLoadingDetail] = useState(false);
+      const chartCanvasRef = React.useRef(null);
+      const chartInstanceRef = React.useRef(null);
+
+      const categories = [
+        { key: 'Texnologiya', uz: 'Texnologiya', ru: 'Технологии', en: 'Technology' },
+        { key: 'Moliya', uz: 'Moliya', ru: 'Финансы', en: 'Finance' },
+        { key: "Sog'liqni saqlash", uz: "Sog'liqni saqlash", ru: 'Здравоохранение', en: 'Healthcare' },
+        { key: 'Energetika', uz: 'Energetika', ru: 'Энергетика', en: 'Energy' },
+        { key: "Iste'mol tovarlari", uz: "Iste'mol tovarlari", ru: 'Потребтовары', en: 'Consumer Goods' },
+        { key: 'Boshqa', uz: 'Boshqa', ru: 'Другое', en: 'Other' }
+      ];
 
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
@@ -176,7 +191,21 @@
           portfolioTitle: "Mening Portfolio",
           yourHoldings: "Sizning ulushlaringiz",
           noHoldings: "Hali hech qanday ulushingiz yo'q",
-          shares: "ulush"
+          shares: "ulush",
+          categoryLabel: "Kategoriya (nimaga qarashli)",
+          loginToCreate: "Aksiya yaratish uchun tizimga kiring",
+          backToList: "Ro'yxatga qaytish",
+          priceChart: "Narx Grafigi",
+          techAnalysisTitle: "Avtomatik Texnik Tahlil",
+          trendUp: "Ko'tarilish trendida — sotib olishlar sotishlardan ko'p bo'lmoqda.",
+          trendDown: "Pasayish trendida — sotishlar sotib olishlardan ko'p bo'lmoqda.",
+          trendNeutral: "Neytral holat — narx nisbatan barqaror.",
+          sinceCreation: "Yaratilganidan beri",
+          activityFeed: "Faoliyat Lentasi",
+          noActivity: "Hali savdo bo'lmagan",
+          userBought: "Foydalanuvchi sotib oldi",
+          userSold: "Foydalanuvchi sotdi",
+          about: "haqida"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -228,7 +257,21 @@
           portfolioTitle: "Мой Портфель",
           yourHoldings: "Ваши доли",
           noHoldings: "У вас пока нет долей",
-          shares: "шт."
+          shares: "шт.",
+          categoryLabel: "Категория",
+          loginToCreate: "Войдите, чтобы создать акцию",
+          backToList: "Назад к списку",
+          priceChart: "График Цены",
+          techAnalysisTitle: "Автоматический Технический Анализ",
+          trendUp: "Восходящий тренд — покупок больше, чем продаж.",
+          trendDown: "Нисходящий тренд — продаж больше, чем покупок.",
+          trendNeutral: "Нейтрально — цена относительно стабильна.",
+          sinceCreation: "С момента создания",
+          activityFeed: "Лента Активности",
+          noActivity: "Пока нет сделок",
+          userBought: "Пользователь купил",
+          userSold: "Пользователь продал",
+          about: "о"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -280,7 +323,21 @@
           portfolioTitle: "My Portfolio",
           yourHoldings: "Your holdings",
           noHoldings: "You don't own any shares yet",
-          shares: "shares"
+          shares: "shares",
+          categoryLabel: "Category",
+          loginToCreate: "Log in to create a stock",
+          backToList: "Back to list",
+          priceChart: "Price Chart",
+          techAnalysisTitle: "Automatic Technical Analysis",
+          trendUp: "Uptrend — buys are outweighing sells.",
+          trendDown: "Downtrend — sells are outweighing buys.",
+          trendNeutral: "Neutral — price is relatively stable.",
+          sinceCreation: "Since creation",
+          activityFeed: "Activity Feed",
+          noActivity: "No trades yet",
+          userBought: "User bought",
+          userSold: "User sold",
+          about: "about"
         }
       };
 
@@ -291,9 +348,51 @@
       }, [currentSymbol, currentLang]);
 
       useEffect(() => {
-        if (activeTab === 'market') fetchStocks();
+        if (activeTab === 'market' && !selectedStockId) fetchStocks();
         if (activeTab === 'portfolio' && user) fetchPortfolio();
-      }, [activeTab, user]);
+      }, [activeTab, user, selectedStockId]);
+
+      useEffect(() => {
+        if (selectedStockId) fetchStockDetail(selectedStockId);
+      }, [selectedStockId]);
+
+      useEffect(() => {
+        if (!stockDetail || !chartCanvasRef.current || !window.Chart) return;
+        if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+
+        const labels = stockDetail.priceHistory.map((p) =>
+          new Date(p.time).toLocaleDateString() + ' ' + new Date(p.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+        const prices = stockDetail.priceHistory.map((p) => p.price);
+        const lineColor = stockDetail.trend === 'down' ? '#ef4444' : '#10b981';
+
+        chartInstanceRef.current = new window.Chart(chartCanvasRef.current, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              data: prices,
+              borderColor: lineColor,
+              backgroundColor: lineColor + '22',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 0,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { display: false },
+              y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+            }
+          }
+        });
+
+        return () => { if (chartInstanceRef.current) chartInstanceRef.current.destroy(); };
+      }, [stockDetail]);
 
       async function fetchData(symbol, lang) {
         setLoadingNews(true);
@@ -323,6 +422,18 @@
           console.error(e);
         }
         setLoadingStocks(false);
+      }
+
+      async function fetchStockDetail(id) {
+        setLoadingDetail(true);
+        try {
+          const res = await fetch(`/api/stock-detail?id=${id}`);
+          const data = await res.json();
+          setStockDetail(data);
+        } catch (e) {
+          console.error(e);
+        }
+        setLoadingDetail(false);
       }
 
       async function fetchPortfolio() {
@@ -358,7 +469,7 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Xatolik');
           setCreateMsg({ type: 'success', text: "Aksiya yaratildi!" });
-          setCreateForm({ name: '', ticker: '' });
+          setCreateForm({ name: '', ticker: '', category: 'Texnologiya' });
           fetchStocks();
         } catch (err) {
           setCreateMsg({ type: 'error', text: err.message });
@@ -385,7 +496,7 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Xatolik');
           setTradeMsg({ type: 'success', text: type === 'buy' ? "Sotib olindi!" : "Sotildi!" });
-          fetchStocks();
+          if (selectedStockId) fetchStockDetail(selectedStockId); else fetchStocks();
           fetchPortfolio();
         } catch (err) {
           setTradeMsg({ type: 'error', text: err.message });
@@ -675,86 +786,182 @@
                 )}
 
                 {user ? (
-                  <form onSubmit={handleCreateStock} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <input
-                      type="text" required placeholder={t.stockNameLabel}
-                      value={createForm.name}
-                      onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-                      className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition md:col-span-1"
-                    />
-                    <input
-                      type="text" required maxLength={6} placeholder={t.tickerLabel}
-                      value={createForm.ticker}
-                      onChange={e => setCreateForm({ ...createForm, ticker: e.target.value.toUpperCase() })}
-                      className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition md:col-span-1"
-                    />
+                  <form onSubmit={handleCreateStock} className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        type="text" required placeholder={t.stockNameLabel}
+                        value={createForm.name}
+                        onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                      />
+                      <input
+                        type="text" required maxLength={6} placeholder={t.tickerLabel}
+                        value={createForm.ticker}
+                        onChange={e => setCreateForm({ ...createForm, ticker: e.target.value.toUpperCase() })}
+                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                      />
+                      <select
+                        value={createForm.category}
+                        onChange={e => setCreateForm({ ...createForm, category: e.target.value })}
+                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                      >
+                        {categories.map(c => (
+                          <option key={c.key} value={c.key}>{c[currentLang]}</option>
+                        ))}
+                      </select>
+                    </div>
                     <button
                       type="submit" disabled={createLoading}
-                      className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition text-xs flex items-center justify-center gap-2 md:col-span-1"
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition text-xs flex items-center justify-center gap-2"
                     >
                       {createLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
                       {t.createBtn}
                     </button>
                   </form>
                 ) : (
-                  <p className="text-xs text-slate-500">{t.loginToTrade}</p>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2"
+                  >
+                    <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
+                    {t.loginToCreate}
+                  </button>
                 )}
               </section>
 
-              {/* All stocks list */}
-              <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
-                <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                  <i className="fa-solid fa-list"></i> {t.allStocksTitle}
-                </h3>
+              {/* Stock list OR Stock detail */}
+              {!selectedStockId ? (
+                <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                    <i className="fa-solid fa-list"></i> {t.allStocksTitle}
+                  </h3>
 
-                {tradeMsg.text && (
-                  <div className={`text-xs p-2.5 rounded-lg border ${tradeMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                    {tradeMsg.text}
-                  </div>
-                )}
-
-                {loadingStocks ? (
-                  <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
-                ) : demoStocks.length > 0 ? (
-                  <div className="space-y-2">
-                    {demoStocks.map((stock) => (
-                      <div key={stock.id} className="bg-slate-900/70 p-3 rounded-lg border border-borderDark space-y-2">
-                        <div className="flex justify-between items-center">
+                  {loadingStocks ? (
+                    <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                  ) : demoStocks.length > 0 ? (
+                    <div className="space-y-2">
+                      {demoStocks.map((stock) => (
+                        <div
+                          key={stock.id}
+                          onClick={() => setSelectedStockId(stock.id)}
+                          className="bg-slate-900/70 p-3 rounded-lg border border-borderDark hover:border-emerald-500/40 transition cursor-pointer flex justify-between items-center"
+                        >
                           <div>
                             <span className="font-bold text-slate-200 text-xs">{stock.ticker}</span>
                             <span className="text-slate-500 text-[10px] ml-2">{stock.name}</span>
+                            <span className="block text-[9px] text-slate-600 mt-0.5">{stock.category}</span>
                           </div>
-                          <span className="text-emerald-400 font-bold text-sm">${parseFloat(stock.current_price).toFixed(2)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 font-bold text-sm">${parseFloat(stock.current_price).toFixed(2)}</span>
+                            <i className="fa-solid fa-chevron-right text-slate-600 text-[10px]"></i>
+                          </div>
                         </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 py-2 text-center">{t.noStocks}</p>
+                  )}
+                </section>
+              ) : (
+                <section className="space-y-4">
+                  <button
+                    onClick={() => { setSelectedStockId(null); setStockDetail(null); }}
+                    className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                  >
+                    <i className="fa-solid fa-arrow-left text-[9px]"></i> {t.backToList}
+                  </button>
+
+                  {loadingDetail || !stockDetail?.stock ? (
+                    <p className="text-xs text-slate-400 py-8 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                  ) : (
+                    <React.Fragment>
+                      {/* Header */}
+                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark flex justify-between items-center flex-wrap gap-2">
+                        <div>
+                          <h3 className="font-bold text-slate-100 text-sm">{stockDetail.stock.ticker} <span className="text-slate-500 font-normal text-xs">— {stockDetail.stock.name}</span></h3>
+                          <span className="text-[10px] text-slate-500">{stockDetail.stock.category}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-emerald-400 font-bold text-xl">${parseFloat(stockDetail.stock.current_price).toFixed(2)}</p>
+                          <p className={`text-[11px] font-semibold ${stockDetail.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {stockDetail.changePct >= 0 ? '+' : ''}{stockDetail.changePct}% <span className="text-slate-500 font-normal">({t.sinceCreation})</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Chart */}
+                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark">
+                        <h4 className="text-xs font-bold text-slate-200 mb-2">{t.priceChart}</h4>
+                        <div className="h-[220px]">
+                          <canvas ref={chartCanvasRef}></canvas>
+                        </div>
+                      </div>
+
+                      {/* Auto analysis */}
+                      <div className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-2">
+                        <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                          <i className="fa-solid fa-chart-simple"></i> {t.techAnalysisTitle}
+                        </h4>
+                        <p className="text-[11px] text-slate-300">
+                          {stockDetail.trend === 'up' ? t.trendUp : stockDetail.trend === 'down' ? t.trendDown : t.trendNeutral}
+                        </p>
+                      </div>
+
+                      {/* Buy/Sell */}
+                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                        {tradeMsg.text && (
+                          <div className={`text-xs p-2.5 rounded-lg border ${tradeMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                            {tradeMsg.text}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <input
                             type="number" min="1" max="50" placeholder={t.qtyLabel}
-                            value={tradeQty[stock.id] || ''}
-                            onChange={e => setTradeQty({ ...tradeQty, [stock.id]: e.target.value })}
-                            className="w-20 bg-slate-950 border border-borderDark rounded-lg px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                            value={tradeQty[stockDetail.stock.id] || ''}
+                            onChange={e => setTradeQty({ ...tradeQty, [stockDetail.stock.id]: e.target.value })}
+                            className="w-24 bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
                           />
                           <button
-                            onClick={() => handleTrade(stock.id, 'buy')}
-                            disabled={!user || !marketOpen || tradeLoading === stock.id + 'buy'}
-                            className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-1.5 rounded-lg text-[11px] font-bold transition"
+                            onClick={() => handleTrade(stockDetail.stock.id, 'buy')}
+                            disabled={!user || !marketOpen || tradeLoading === stockDetail.stock.id + 'buy'}
+                            className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-2 rounded-lg text-[11px] font-bold transition"
                           >
                             {t.buyBtn}
                           </button>
                           <button
-                            onClick={() => handleTrade(stock.id, 'sell')}
-                            disabled={!user || !marketOpen || tradeLoading === stock.id + 'sell'}
-                            className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-1.5 rounded-lg text-[11px] font-bold transition"
+                            onClick={() => handleTrade(stockDetail.stock.id, 'sell')}
+                            disabled={!user || !marketOpen || tradeLoading === stockDetail.stock.id + 'sell'}
+                            className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-2 rounded-lg text-[11px] font-bold transition"
                           >
                             {t.sellBtn}
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500 py-2 text-center">{t.noStocks}</p>
-                )}
-              </section>
+
+                      {/* Activity feed */}
+                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                        <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                          <i className="fa-solid fa-clock-rotate-left"></i> {t.activityFeed}
+                        </h4>
+                        {stockDetail.activity.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {stockDetail.activity.map((a, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
+                                <span className={a.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
+                                  {a.type === 'buy' ? t.userBought : t.userSold} {a.quantity} {t.shares}
+                                </span>
+                                <span className="text-slate-500">${parseFloat(a.price).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 py-2 text-center">{t.noActivity}</p>
+                        )}
+                      </div>
+                    </React.Fragment>
+                  )}
+                </section>
+              )}
             </div>
           )}
 
