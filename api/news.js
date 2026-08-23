@@ -126,8 +126,21 @@ async function translateViaMyMemory(text, targetLang) {
       `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}&de=${encodeURIComponent(email)}`
     );
     const data = await res.json();
-    return data?.responseData?.translatedText || text;
+    const result = data?.responseData?.translatedText || text;
+    return decodeHtmlEntities(result);
   } catch (err) {
     return text;
   }
+}
+
+// MyMemory ba'zan &#39; kabi HTML kodlarini qaytaradi — buni oddiy belgiga o'giramiz
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(code))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
 }
