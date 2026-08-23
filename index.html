@@ -8,6 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
+  <!-- Supabase JS (real auth backend) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -19,6 +22,9 @@
             accentGreen: '#10b981',
             accentCyan: '#06b6d4',
             accentRed: '#ef4444'
+          },
+          boxShadow: {
+            glow: '0 0 0 1px rgba(16,185,129,0.25), 0 8px 24px -8px rgba(16,185,129,0.35)'
           }
         }
       }
@@ -30,6 +36,10 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-in { animation: fadeSlideIn 0.25s ease-out; }
+    ::selection { background: rgba(16,185,129,0.35); }
+    input:focus-visible, button:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -38,81 +48,26 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // --- TEKIN VA AVTONOM LOCAL DATABASE (IndexedDB Driver) ---
-    const DB_NAME = 'DedcoTradingDB';
-    const DB_VERSION = 1;
+    // ====== SUPABASE SOZLAMALARI ======
+    // Bu ikkalasini o'zingizning Supabase loyihangizdan oling:
+    // Supabase Dashboard -> Project Settings -> API
+    const SUPABASE_URL = "YOUR_SUPABASE_URL"; // masalan: https://xxxxx.supabase.co
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
-    function openDB() {
-      return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains('users')) {
-            db.createObjectStore('users', { keyPath: 'email' });
-          }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-    }
-
-    async function registerUser(email, password, name) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('users', 'readwrite');
-        const store = tx.objectStore('users');
-        const checkReq = store.get(email);
-
-        checkReq.onsuccess = () => {
-          if (checkReq.result) {
-            reject(new Error("Bu email allaqachon ro'yxatdan o'tgan!"));
-          } else {
-            const newUser = {
-              email,
-              password, // Parol brauzerning xavfsiz local xotirasida saqlanadi
-              name: name || email.split('@')[0],
-              createdAt: new Date().toISOString()
-            };
-            store.add(newUser);
-            resolve(newUser);
-          }
-        };
-        checkReq.onerror = () => reject(checkReq.error);
-      });
-    }
-
-    async function loginUser(email, password) {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction('users', 'readonly');
-        const store = tx.objectStore('users');
-        const req = store.get(email);
-
-        req.onsuccess = () => {
-          const user = req.result;
-          if (!user) {
-            reject(new Error("Foydalanuvchi topilmadi!"));
-          } else if (user.password !== password) {
-            reject(new Error("Parol noto'g'ri!"));
-          } else {
-            resolve(user);
-          }
-        };
-        req.onerror = () => reject(req.error);
-      });
-    }
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     function App() {
       const [currentLang, setCurrentLang] = useState('uz');
       const [currentSymbol, setCurrentSymbol] = useState('AAPL');
       const [searchInput, setSearchInput] = useState('');
-      
+
       const [news, setNews] = useState([]);
       const [loadingNews, setLoadingNews] = useState(false);
       const [stockPrice, setStockPrice] = useState(313.33);
 
       // Auth State
       const [user, setUser] = useState(null);
+      const [authChecked, setAuthChecked] = useState(false);
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [isRegistering, setIsRegistering] = useState(false);
       const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
@@ -122,16 +77,30 @@
       const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
       const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
 
-      // Sessiyani tekshirish (Sahifa yangilanganda ham saqlanadi)
+      // Supabase sessiyasini kuzatish (sahifa yangilanganda ham saqlanadi)
       useEffect(() => {
-        const savedUser = localStorage.getItem('dedco_active_user');
-        if (savedUser) {
-          try {
-            setUser(JSON.parse(savedUser));
-          } catch (e) {
-            localStorage.removeItem('dedco_active_user');
+        supabase.auth.getSession().then(({ data }) => {
+          if (data?.session?.user) {
+            setUser({
+              email: data.session.user.email,
+              name: data.session.user.user_metadata?.name || data.session.user.email.split('@')[0]
+            });
           }
-        }
+          setAuthChecked(true);
+        });
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) {
+            setUser({
+              email: session.user.email,
+              name: session.user.user_metadata?.name || session.user.email.split('@')[0]
+            });
+          } else {
+            setUser(null);
+          }
+        });
+
+        return () => listener?.subscription?.unsubscribe();
       }, []);
 
       const translations = {
@@ -161,7 +130,8 @@
           emailLabel: "Email manzil",
           passLabel: "Parol",
           noAccount: "Hisobingiz yo'qmi? Ro'yxatdan o'ting",
-          hasAccount: "Hisobingiz bormi? Tizimga kiring"
+          hasAccount: "Hisobingiz bormi? Tizimga kiring",
+          confirmEmail: "Ro'yxatdan o'tdingiz! Emailingizni tasdiqlang, so'ng tizimga kiring."
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -189,7 +159,8 @@
           emailLabel: "Email адрес",
           passLabel: "Пароль",
           noAccount: "Нет аккаунта? Зарегистрируйтесь",
-          hasAccount: "Уже есть аккаунт? Войдите"
+          hasAccount: "Уже есть аккаунт? Войдите",
+          confirmEmail: "Регистрация прошла! Подтвердите email, затем войдите."
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -217,7 +188,8 @@
           emailLabel: "Email Address",
           passLabel: "Password",
           noAccount: "Don't have an account? Register",
-          hasAccount: "Already have an account? Login"
+          hasAccount: "Already have an account? Login",
+          confirmEmail: "Registered! Please confirm your email, then log in."
         }
       };
 
@@ -246,25 +218,36 @@
         }
       }
 
-      // LOGIN / REGISTRATION ISHLASH MEXANIZMI
+      // LOGIN / RO'YXATDAN O'TISH — endi Supabase Auth orqali (real backend)
       async function handleAuthSubmit(e) {
         e.preventDefault();
         setAuthLoading(true);
         setAuthMessage({ type: '', text: '' });
 
         try {
-          let userData;
           if (isRegistering) {
-            userData = await registerUser(authForm.email, authForm.password, authForm.name);
+            const { data, error } = await supabase.auth.signUp({
+              email: authForm.email,
+              password: authForm.password,
+              options: { data: { name: authForm.name } }
+            });
+            if (error) throw error;
+
+            // Agar Supabase'da "Confirm email" yoqilgan bo'lsa, session bo'lmaydi
+            if (!data.session) {
+              setAuthMessage({ type: 'success', text: t.confirmEmail });
+              setAuthLoading(false);
+              return;
+            }
             setAuthMessage({ type: 'success', text: "Muvaffaqiyatli ro'yxatdan o'tdingiz!" });
           } else {
-            userData = await loginUser(authForm.email, authForm.password);
+            const { error } = await supabase.auth.signInWithPassword({
+              email: authForm.email,
+              password: authForm.password
+            });
+            if (error) throw error;
             setAuthMessage({ type: 'success', text: "Tizimga kirdingiz!" });
           }
-
-          const sessionData = { email: userData.email, name: userData.name };
-          setUser(sessionData);
-          localStorage.setItem('dedco_active_user', JSON.stringify(sessionData));
 
           setTimeout(() => {
             setShowAuthModal(false);
@@ -273,15 +256,14 @@
           }, 800);
 
         } catch (err) {
-          setAuthMessage({ type: 'error', text: err.message });
+          setAuthMessage({ type: 'error', text: err.message || "Xatolik yuz berdi" });
         } finally {
           setAuthLoading(false);
         }
       }
 
-      function handleLogout() {
-        setUser(null);
-        localStorage.removeItem('dedco_active_user');
+      async function handleLogout() {
+        await supabase.auth.signOut();
       }
 
       const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
@@ -290,7 +272,7 @@
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-4 space-y-5">
-          
+
           {/* Header */}
           <header className="flex justify-between items-center bg-cardDark/80 p-3.5 rounded-xl border border-borderDark flex-wrap gap-3">
             <div className="flex items-center gap-3">
@@ -304,18 +286,22 @@
             </div>
 
             <div className="flex items-center gap-3">
-              {user ? (
-                <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1 rounded-lg">
-                  <i className="fa-solid fa-user text-emerald-400 text-xs"></i>
+              {!authChecked ? (
+                <div className="w-16 h-6 rounded-lg bg-slate-800/60 animate-pulse"></div>
+              ) : user ? (
+                <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1.5 rounded-lg animate-in">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <i className="fa-solid fa-user text-emerald-400 text-[9px]"></i>
+                  </div>
                   <span className="text-xs font-semibold text-slate-200">{user.name}</span>
-                  <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:underline" title={t.logoutBtn}>
+                  <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:text-rose-300 transition" title={t.logoutBtn}>
                     <i className="fa-solid fa-right-from-bracket"></i>
                   </button>
                 </div>
               ) : (
-                <button 
-                  onClick={() => setShowAuthModal(true)} 
-                  className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="bg-emerald-500/20 hover:bg-emerald-500/30 hover:shadow-glow text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
                 >
                   <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
                   {t.loginBtn}
@@ -324,10 +310,10 @@
 
               <div className="flex bg-slate-900/90 p-1 rounded-lg border border-borderDark text-xs font-semibold">
                 {['uz', 'ru', 'en'].map(lang => (
-                  <button 
-                    key={lang} 
+                  <button
+                    key={lang}
                     onClick={() => setCurrentLang(lang)}
-                    className={`px-2.5 py-1 rounded-md uppercase transition ${currentLang === lang ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400'}`}
+                    className={`px-2.5 py-1 rounded-md uppercase transition ${currentLang === lang ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
                   >
                     {lang}
                   </button>
@@ -340,7 +326,7 @@
           <section className="bg-cardDark p-4 rounded-xl border border-borderDark">
             <h2 className="text-sm font-bold text-slate-200 mb-3">{t.chartTitle}</h2>
             <div className="w-full h-[400px] rounded-lg overflow-hidden border border-borderDark">
-              <iframe 
+              <iframe
                 src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_1&symbol=${currentSymbol}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC`}
                 className="w-full h-full border-0"
               ></iframe>
@@ -355,15 +341,15 @@
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center">
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-emerald-500/30 transition">
                 <p className="text-[10px] text-slate-400 font-semibold">{t.entry}</p>
                 <p className="text-emerald-400 font-bold text-base mt-1">${entryPrice}</p>
               </div>
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center">
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-cyan-500/30 transition">
                 <p className="text-[10px] text-slate-400 font-semibold">{t.tp}</p>
                 <p className="text-cyan-400 font-bold text-base mt-1">${tpPrice}</p>
               </div>
-              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center">
+              <div className="bg-slate-900/60 p-3 rounded-lg border border-borderDark text-center hover:border-rose-500/30 transition">
                 <p className="text-[10px] text-slate-400 font-semibold">{t.sl}</p>
                 <p className="text-rose-400 font-bold text-base mt-1">${slPrice}</p>
               </div>
@@ -383,10 +369,10 @@
               </h3>
               <div className="space-y-2">
                 {top5BuyList.map((sym) => (
-                  <div 
-                    key={sym} 
+                  <div
+                    key={sym}
                     onClick={() => setCurrentSymbol(sym)}
-                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-emerald-500/50 transition cursor-pointer flex justify-between items-center text-xs"
+                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-emerald-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
                   >
                     <span className="font-bold text-slate-200">{sym}</span>
                     <div className="font-mono text-[11px] space-x-2">
@@ -404,10 +390,10 @@
               </h3>
               <div className="space-y-2">
                 {top5SellList.map((sym) => (
-                  <div 
-                    key={sym} 
+                  <div
+                    key={sym}
                     onClick={() => setCurrentSymbol(sym)}
-                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-rose-500/50 transition cursor-pointer flex justify-between items-center text-xs"
+                    className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-rose-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
                   >
                     <span className="font-bold text-slate-200">{sym}</span>
                     <div className="font-mono text-[11px] space-x-2">
@@ -426,8 +412,8 @@
               <i className="fa-solid fa-newspaper text-cyan-400"></i> {t.newsTitle} ({currentSymbol})
             </h2>
 
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder={t.searchPlaceholder}
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
@@ -440,7 +426,7 @@
                 <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
               ) : news.length > 0 ? (
                 news.map((item) => (
-                  <div key={item.id} className="p-3 bg-slate-900/60 rounded-lg border border-borderDark space-y-1.5">
+                  <div key={item.id} className="p-3 bg-slate-900/60 rounded-lg border border-borderDark space-y-1.5 hover:border-slate-600 transition">
                     <h4 className="font-bold text-xs text-slate-200 leading-snug">{item.headline}</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">{item.summary}</p>
                     <div className="pt-1 flex justify-between items-center text-[10px]">
@@ -460,23 +446,28 @@
           {/* AUTH MODAL */}
           {showAuthModal && (
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-cardDark border border-borderDark rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl relative">
-                
-                <button 
+              <div className="bg-cardDark border border-borderDark rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl relative animate-in">
+
+                <button
                   onClick={() => setShowAuthModal(false)}
-                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-200 text-sm"
+                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-200 text-sm transition"
                 >
                   <i className="fa-solid fa-xmark"></i>
                 </button>
 
-                <h3 className="text-sm font-bold text-emerald-400">
-                  {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+                    <i className="fa-solid fa-shield-halved text-emerald-400 text-[10px]"></i>
+                  </div>
+                  <h3 className="text-sm font-bold text-emerald-400">
+                    {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
+                  </h3>
+                </div>
 
                 {authMessage.text && (
-                  <div className={`text-xs p-2.5 rounded-lg border ${
-                    authMessage.type === 'error' 
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' 
+                  <div className={`text-xs p-2.5 rounded-lg border animate-in ${
+                    authMessage.type === 'error'
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                       : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                   }`}>
                     {authMessage.text}
@@ -487,42 +478,43 @@
                   {isRegistering && (
                     <div>
                       <label className="text-slate-400 block mb-1">{t.nameLabel}</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         value={authForm.name}
                         onChange={e => setAuthForm({...authForm, name: e.target.value})}
-                        className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                        className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500 transition"
                       />
                     </div>
                   )}
 
                   <div>
                     <label className="text-slate-400 block mb-1">{t.emailLabel}</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       required
                       value={authForm.email}
                       onChange={e => setAuthForm({...authForm, email: e.target.value})}
-                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500 transition"
                     />
                   </div>
 
                   <div>
                     <label className="text-slate-400 block mb-1">{t.passLabel}</label>
-                    <input 
-                      type="password" 
+                    <input
+                      type="password"
                       required
+                      minLength={6}
                       value={authForm.password}
                       onChange={e => setAuthForm({...authForm, password: e.target.value})}
-                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500" 
+                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500 transition"
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={authLoading}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-2 rounded-lg transition mt-2 flex items-center justify-center gap-2"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition mt-2 flex items-center justify-center gap-2"
                   >
                     {authLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
                     {isRegistering ? t.authModalTitleReg : t.authModalTitleLogin}
@@ -530,8 +522,8 @@
                 </form>
 
                 <div className="text-center pt-2 border-t border-borderDark">
-                  <button 
-                    onClick={() => { setIsRegistering(!isRegistering); setAuthMessage({ type: '', text: '' }); }} 
+                  <button
+                    onClick={() => { setIsRegistering(!isRegistering); setAuthMessage({ type: '', text: '' }); }}
                     className="text-[11px] text-cyan-400 hover:underline"
                   >
                     {isRegistering ? t.hasAccount : t.noAccount}
