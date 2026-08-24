@@ -16,21 +16,17 @@ export default async function handler(req, res) {
 
     for (const stock of stocks) {
       const lastRun = new Date(stock.last_bot_run || stock.created_at).getTime();
-      // Har 2 daqiqada bir marta, va faqat ~60% ehtimol bilan (tabiiyroq ko'rinish uchun)
-      if (now - lastRun < 2 * 60 * 1000) continue;
-      if (Math.random() > 0.6) {
-        await patchStock(stock.id, { last_bot_run: new Date().toISOString() }, supabaseUrl, serviceKey);
-        continue;
-      }
+      // Har 30 soniyada bir marta ishga tushadi (avval 2 daqiqa edi — juda kam edi)
+      if (now - lastRun < 30 * 1000) continue;
 
       let supply = parseFloat(stock.total_supply);
       const basePrice = parseFloat(stock.base_price);
       const side = Math.random() > 0.5 ? "buy" : "sell";
-      const qty = 1 + Math.floor(Math.random() * 2); // 1-2 dona
+      const qty = 1 + Math.floor(Math.random() * 3); // 1-3 dona
       let price = priceAt(basePrice, supply);
 
       if (side === "buy") {
-        for (let i = 0; i < qty; i++) { price = priceAt(basePrice, supply); supply += 1; }
+        for (let i = 0; i < qty; i++) { supply += 1; price = priceAt(basePrice, supply); }
       } else {
         if (supply < qty) { await patchStock(stock.id, { last_bot_run: new Date().toISOString() }, supabaseUrl, serviceKey); continue; }
         for (let i = 0; i < qty; i++) { supply -= 1; price = priceAt(basePrice, supply); }
@@ -136,6 +132,19 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
   const newBalance = isSell ? parseFloat(profile.balance) + total : parseFloat(profile.balance) - total;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = isSell ? currentHolding - qty : currentHolding + qty;
+  const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
+  const oldRealizedPl = holding ? parseFloat(holding.realized_pl || 0) : 0;
+
+  let newAvgCost = oldAvgCost;
+  let newRealizedPl = oldRealizedPl;
+
+  if (!isSell) {
+    newAvgCost = newHoldingQty > 0 ? ((oldAvgCost * currentHolding) + total) / newHoldingQty : 0;
+  } else {
+    const avgSalePrice = total / qty;
+    newRealizedPl = oldRealizedPl + (avgSalePrice - oldAvgCost) * qty;
+    newAvgCost = newHoldingQty > 0 ? oldAvgCost : 0;
+  }
 
   await Promise.all([
     fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${order.user_id}`, {
@@ -149,11 +158,11 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
     holding
       ? fetch(`${supabaseUrl}/rest/v1/stock_holdings?id=eq.${holding.id}`, {
           method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ quantity: newHoldingQty })
+          body: JSON.stringify({ quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
         })
       : fetch(`${supabaseUrl}/rest/v1/stock_holdings`, {
           method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ user_id: order.user_id, stock_id: order.stock_id, quantity: newHoldingQty })
+          body: JSON.stringify({ user_id: order.user_id, stock_id: order.stock_id, quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
         }),
     fetch(`${supabaseUrl}/rest/v1/stock_orders?id=eq.${order.id}`, {
       method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -186,4 +195,4 @@ async function cancelOrder(orderId, supabaseUrl, serviceKey) {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ status: "cancelled" })
   });
-      }
+                                     }
