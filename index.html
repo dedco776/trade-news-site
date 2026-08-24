@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
     @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyMTkzMTgsImV4cCI6MjEwMTc5NTMxOH0.6T_pnwO5K0YLO58Cxw_CCsTDb-SJpaXwsml_OQpILP8";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -95,8 +95,17 @@
       const [selectedStockId, setSelectedStockId] = useState(null);
       const [stockDetail, setStockDetail] = useState(null);
       const [loadingDetail, setLoadingDetail] = useState(false);
+      const [orderTypeSel, setOrderTypeSel] = useState({});
+      const [targetPriceInput, setTargetPriceInput] = useState({});
+      const [candleInterval, setCandleInterval] = useState('5m');
+      const [candles, setCandles] = useState([]);
+      const [myOpenOrders, setMyOpenOrders] = useState([]);
+      const [editingDesc, setEditingDesc] = useState(false);
+      const [descDraft, setDescDraft] = useState('');
       const chartCanvasRef = React.useRef(null);
       const chartInstanceRef = React.useRef(null);
+      const candleSeriesRef = React.useRef(null);
+      const volumeSeriesRef = React.useRef(null);
 
       const categories = [
         { key: 'Texnologiya', uz: 'Texnologiya', ru: 'Технологии', en: 'Technology' },
@@ -114,6 +123,7 @@
         supabase.auth.getSession().then(({ data }) => {
           if (data?.session?.user) {
             setUser({
+              id: data.session.user.id,
               email: data.session.user.email,
               name: data.session.user.user_metadata?.name || data.session.user.email.split('@')[0]
             });
@@ -124,6 +134,7 @@
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
           if (session?.user) {
             setUser({
+              id: session.user.id,
               email: session.user.email,
               name: session.user.user_metadata?.name || session.user.email.split('@')[0]
             });
@@ -134,9 +145,14 @@
 
         const marketTimer = setInterval(() => setMarketOpen(isMarketOpenNow()), 60000);
 
+        // Market Maker bot — narx foydalanuvchi yo'q paytda ham tebranib tursin
+        fetch('/api/market-bot').catch(() => {});
+        const botTimer = setInterval(() => fetch('/api/market-bot').catch(() => {}), 3 * 60 * 1000);
+
         return () => {
           listener?.subscription?.unsubscribe();
           clearInterval(marketTimer);
+          clearInterval(botTimer);
         };
       }, []);
 
@@ -205,7 +221,36 @@
           noActivity: "Hali savdo bo'lmagan",
           userBought: "Foydalanuvchi sotib oldi",
           userSold: "Foydalanuvchi sotdi",
-          about: "haqida"
+          about: "haqida",
+          orderTypeLabel: "Buyurtma turi",
+          orderMarket: "Market (darhol)",
+          orderLimit: "Limit",
+          orderStopLoss: "Stop-Loss",
+          orderTakeProfit: "Take-Profit",
+          targetPriceLabel: "Maqsad narx ($)",
+          orderBookTitle: "Order Book",
+          buyWall: "Sotib olish buyurtmalari",
+          sellWall: "Sotish buyurtmalari",
+          emptyBook: "Buyurtmalar yo'q",
+          myOpenOrders: "Mening ochiq buyurtmalarim",
+          cancelOrder: "Bekor qilish",
+          noOpenOrders: "Ochiq buyurtmalar yo'q",
+          halalMetricsTitle: "Halal Ko'rsatkichlar",
+          marketCap: "Market Cap",
+          high24h: "24s Yuqori",
+          low24h: "24s Past",
+          volume24h: "24s Hajm",
+          circSupply: "Muomaladagi ulush",
+          holders: "Egalar soni",
+          ownerLabel: "Egasi",
+          ownerPanelTitle: "Egasi Paneli",
+          descLabel: "Kompaniya haqida (tavsif)",
+          saveDesc: "Saqlash",
+          editDesc: "Tahrirlash",
+          royaltyNote: "Har savdodan 2% bonus balansingizga avtomatik qo'shiladi",
+          yourStockLabel: "Sizning aksiyangiz",
+          botTrade: "Bot",
+          candleInterval: "Vaqt oralig'i"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -271,7 +316,36 @@
           noActivity: "Пока нет сделок",
           userBought: "Пользователь купил",
           userSold: "Пользователь продал",
-          about: "о"
+          about: "о",
+          orderTypeLabel: "Тип ордера",
+          orderMarket: "Market (сразу)",
+          orderLimit: "Limit",
+          orderStopLoss: "Stop-Loss",
+          orderTakeProfit: "Take-Profit",
+          targetPriceLabel: "Целевая цена ($)",
+          orderBookTitle: "Order Book",
+          buyWall: "Заявки на покупку",
+          sellWall: "Заявки на продажу",
+          emptyBook: "Заявок нет",
+          myOpenOrders: "Мои открытые ордера",
+          cancelOrder: "Отменить",
+          noOpenOrders: "Нет открытых ордеров",
+          halalMetricsTitle: "Халяль Показатели",
+          marketCap: "Market Cap",
+          high24h: "24ч Макс",
+          low24h: "24ч Мин",
+          volume24h: "24ч Объём",
+          circSupply: "В обращении",
+          holders: "Держателей",
+          ownerLabel: "Владелец",
+          ownerPanelTitle: "Панель Владельца",
+          descLabel: "О компании (описание)",
+          saveDesc: "Сохранить",
+          editDesc: "Редактировать",
+          royaltyNote: "2% с каждой сделки автоматически идёт на ваш баланс",
+          yourStockLabel: "Ваша акция",
+          botTrade: "Бот",
+          candleInterval: "Интервал"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -337,7 +411,36 @@
           noActivity: "No trades yet",
           userBought: "User bought",
           userSold: "User sold",
-          about: "about"
+          about: "about",
+          orderTypeLabel: "Order Type",
+          orderMarket: "Market (instant)",
+          orderLimit: "Limit",
+          orderStopLoss: "Stop-Loss",
+          orderTakeProfit: "Take-Profit",
+          targetPriceLabel: "Target Price ($)",
+          orderBookTitle: "Order Book",
+          buyWall: "Buy Orders",
+          sellWall: "Sell Orders",
+          emptyBook: "No orders",
+          myOpenOrders: "My Open Orders",
+          cancelOrder: "Cancel",
+          noOpenOrders: "No open orders",
+          halalMetricsTitle: "Halal Metrics",
+          marketCap: "Market Cap",
+          high24h: "24h High",
+          low24h: "24h Low",
+          volume24h: "24h Volume",
+          circSupply: "Circulating Supply",
+          holders: "Holders",
+          ownerLabel: "Owner",
+          ownerPanelTitle: "Owner Panel",
+          descLabel: "About the company (description)",
+          saveDesc: "Save",
+          editDesc: "Edit",
+          royaltyNote: "2% of every trade is automatically added to your balance",
+          yourStockLabel: "Your stock",
+          botTrade: "Bot",
+          candleInterval: "Interval"
         }
       };
 
@@ -353,46 +456,55 @@
       }, [activeTab, user, selectedStockId]);
 
       useEffect(() => {
-        if (selectedStockId) fetchStockDetail(selectedStockId);
-      }, [selectedStockId]);
+        if (selectedStockId) {
+          fetchStockDetail(selectedStockId);
+          fetchCandles(selectedStockId, candleInterval);
+          if (user) fetchMyOpenOrders(selectedStockId);
+        }
+      }, [selectedStockId, candleInterval, user]);
 
       useEffect(() => {
-        if (!stockDetail || !chartCanvasRef.current || !window.Chart) return;
-        if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+        if (!candles.length || !chartCanvasRef.current || !window.LightweightCharts) return;
 
-        const labels = stockDetail.priceHistory.map((p) =>
-          new Date(p.time).toLocaleDateString() + ' ' + new Date(p.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        );
-        const prices = stockDetail.priceHistory.map((p) => p.price);
-        const lineColor = stockDetail.trend === 'down' ? '#ef4444' : '#10b981';
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.remove();
+          chartInstanceRef.current = null;
+        }
 
-        chartInstanceRef.current = new window.Chart(chartCanvasRef.current, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{
-              data: prices,
-              borderColor: lineColor,
-              backgroundColor: lineColor + '22',
-              fill: true,
-              tension: 0.3,
-              pointRadius: 0,
-              borderWidth: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { display: false },
-              y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
-            }
-          }
+        const chart = window.LightweightCharts.createChart(chartCanvasRef.current, {
+          layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
+          grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
+          width: chartCanvasRef.current.clientWidth,
+          height: 260,
+          timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1e293b' },
+          rightPriceScale: { borderColor: '#1e293b' }
         });
 
-        return () => { if (chartInstanceRef.current) chartInstanceRef.current.destroy(); };
-      }, [stockDetail]);
+        const candleSeries = chart.addCandlestickSeries({
+          upColor: '#10b981', downColor: '#ef4444',
+          borderUpColor: '#10b981', borderDownColor: '#ef4444',
+          wickUpColor: '#10b981', wickDownColor: '#ef4444'
+        });
+        candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+
+        const volumeSeries = chart.addHistogramSeries({
+          priceFormat: { type: 'volume' },
+          priceScaleId: '',
+          scaleMargins: { top: 0.8, bottom: 0 }
+        });
+        volumeSeries.setData(candles.map((c) => ({
+          time: c.time, value: c.volume,
+          color: c.close >= c.open ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'
+        })));
+
+        chart.timeScale().fitContent();
+        chartInstanceRef.current = chart;
+
+        const handleResize = () => chart.applyOptions({ width: chartCanvasRef.current.clientWidth });
+        window.addEventListener('resize', handleResize);
+        return () => { window.removeEventListener('resize', handleResize); chart.remove(); };
+      }, [candles]);
+
 
       async function fetchData(symbol, lang) {
         setLoadingNews(true);
@@ -430,10 +542,64 @@
           const res = await fetch(`/api/stock-detail?id=${id}`);
           const data = await res.json();
           setStockDetail(data);
+          setDescDraft(data?.stock?.description || '');
         } catch (e) {
           console.error(e);
         }
         setLoadingDetail(false);
+      }
+
+      async function fetchCandles(id, interval) {
+        try {
+          const res = await fetch(`/api/candles?stock_id=${id}&interval=${interval}`);
+          const data = await res.json();
+          setCandles(data.candles || []);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function fetchMyOpenOrders(stockId) {
+        try {
+          const token = await getAuthToken();
+          if (!token) { setMyOpenOrders([]); return; }
+          const res = await fetch(`/api/orders?stock_id=${stockId}`, { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setMyOpenOrders(data.orders || []);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function handleCancelOrder(orderId) {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          await fetch('/api/orders', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ order_id: orderId })
+          });
+          if (selectedStockId) { fetchMyOpenOrders(selectedStockId); fetchStockDetail(selectedStockId); }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function handleUpdateDescription(stockId) {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          await fetch('/api/stocks', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ stock_id: stockId, description: descDraft })
+          });
+          setEditingDesc(false);
+          fetchStockDetail(stockId);
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       async function fetchPortfolio() {
@@ -488,15 +654,23 @@
             return;
           }
           const qty = parseInt(tradeQty[stockId] || '1', 10);
+          const orderType = orderTypeSel[stockId] || 'market';
+          const targetPrice = targetPriceInput[stockId];
           const res = await fetch('/api/trade', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ stock_id: stockId, type, quantity: qty })
+            body: JSON.stringify({ stock_id: stockId, type, quantity: qty, order_type: orderType, target_price: targetPrice })
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Xatolik');
-          setTradeMsg({ type: 'success', text: type === 'buy' ? "Sotib olindi!" : "Sotildi!" });
-          if (selectedStockId) fetchStockDetail(selectedStockId); else fetchStocks();
+          setTradeMsg({ type: 'success', text: data.pending ? "Buyurtma qo'yildi, bajarilishini kutmoqda." : (type === 'buy' ? "Sotib olindi!" : "Sotildi!") });
+          if (selectedStockId) {
+            fetchStockDetail(selectedStockId);
+            fetchCandles(selectedStockId, candleInterval);
+            fetchMyOpenOrders(selectedStockId);
+          } else {
+            fetchStocks();
+          }
           fetchPortfolio();
         } catch (err) {
           setTradeMsg({ type: 'error', text: err.message });
@@ -773,61 +947,80 @@
 
               <p className="text-[10px] text-slate-500 italic px-1">{t.demoNote}</p>
 
-              {/* Create stock */}
-              <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
-                <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                  <i className="fa-solid fa-plus"></i> {t.createStockTitle}
-                </h3>
-
-                {createMsg.text && (
-                  <div className={`text-xs p-2.5 rounded-lg border ${createMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                    {createMsg.text}
-                  </div>
-                )}
-
-                {user ? (
-                  <form onSubmit={handleCreateStock} className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
-                        type="text" required placeholder={t.stockNameLabel}
-                        value={createForm.name}
-                        onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
-                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
-                      />
-                      <input
-                        type="text" required maxLength={6} placeholder={t.tickerLabel}
-                        value={createForm.ticker}
-                        onChange={e => setCreateForm({ ...createForm, ticker: e.target.value.toUpperCase() })}
-                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
-                      />
-                      <select
-                        value={createForm.category}
-                        onChange={e => setCreateForm({ ...createForm, category: e.target.value })}
-                        className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
-                      >
-                        {categories.map(c => (
-                          <option key={c.key} value={c.key}>{c[currentLang]}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      type="submit" disabled={createLoading}
-                      className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition text-xs flex items-center justify-center gap-2"
+              {/* Create stock (yoki, agar allaqachon bor bo'lsa — "Sizning aksiyangiz") */}
+              {(() => {
+                const myStock = user ? demoStocks.find(s => s.owner_id === user.id) : null;
+                if (myStock) {
+                  return (
+                    <section
+                      onClick={() => setSelectedStockId(myStock.id)}
+                      className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/40 flex justify-between items-center cursor-pointer hover:bg-emerald-500/15 transition"
                     >
-                      {createLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
-                      {t.createBtn}
-                    </button>
-                  </form>
-                ) : (
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2"
-                  >
-                    <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
-                    {t.loginToCreate}
-                  </button>
-                )}
-              </section>
+                      <div>
+                        <p className="text-[10px] text-emerald-400 font-semibold">{t.yourStockLabel}</p>
+                        <p className="text-sm font-bold text-slate-100">{myStock.ticker} — {myStock.name}</p>
+                      </div>
+                      <span className="text-emerald-400 font-bold">${parseFloat(myStock.current_price).toFixed(2)}</span>
+                    </section>
+                  );
+                }
+                return (
+                  <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                    <h3 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                      <i className="fa-solid fa-plus"></i> {t.createStockTitle}
+                    </h3>
+
+                    {createMsg.text && (
+                      <div className={`text-xs p-2.5 rounded-lg border ${createMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                        {createMsg.text}
+                      </div>
+                    )}
+
+                    {user ? (
+                      <form onSubmit={handleCreateStock} className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            type="text" required placeholder={t.stockNameLabel}
+                            value={createForm.name}
+                            onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
+                            className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                          />
+                          <input
+                            type="text" required maxLength={6} placeholder={t.tickerLabel}
+                            value={createForm.ticker}
+                            onChange={e => setCreateForm({ ...createForm, ticker: e.target.value.toUpperCase() })}
+                            className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                          />
+                          <select
+                            value={createForm.category}
+                            onChange={e => setCreateForm({ ...createForm, category: e.target.value })}
+                            className="bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500 transition"
+                          >
+                            {categories.map(c => (
+                              <option key={c.key} value={c.key}>{c[currentLang]}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="submit" disabled={createLoading}
+                          className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2 rounded-lg transition text-xs flex items-center justify-center gap-2"
+                        >
+                          {createLoading && <i className="fa-solid fa-spinner fa-spin"></i>}
+                          {t.createBtn}
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => setShowAuthModal(true)}
+                        className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2"
+                      >
+                        <i className="fa-solid fa-right-to-bracket text-[10px]"></i>
+                        {t.loginToCreate}
+                      </button>
+                    )}
+                  </section>
+                );
+              })()}
 
               {/* Stock list OR Stock detail */}
               {!selectedStockId ? (
@@ -865,7 +1058,7 @@
               ) : (
                 <section className="space-y-4">
                   <button
-                    onClick={() => { setSelectedStockId(null); setStockDetail(null); }}
+                    onClick={() => { setSelectedStockId(null); setStockDetail(null); setCandles([]); }}
                     className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
                   >
                     <i className="fa-solid fa-arrow-left text-[9px]"></i> {t.backToList}
@@ -875,89 +1068,227 @@
                     <p className="text-xs text-slate-400 py-8 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
                   ) : (
                     <React.Fragment>
-                      {/* Header */}
-                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark flex justify-between items-center flex-wrap gap-2">
-                        <div>
-                          <h3 className="font-bold text-slate-100 text-sm">{stockDetail.stock.ticker} <span className="text-slate-500 font-normal text-xs">— {stockDetail.stock.name}</span></h3>
-                          <span className="text-[10px] text-slate-500">{stockDetail.stock.category}</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-emerald-400 font-bold text-xl">${parseFloat(stockDetail.stock.current_price).toFixed(2)}</p>
-                          <p className={`text-[11px] font-semibold ${stockDetail.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {stockDetail.changePct >= 0 ? '+' : ''}{stockDetail.changePct}% <span className="text-slate-500 font-normal">({t.sinceCreation})</span>
-                          </p>
-                        </div>
-                      </div>
+                      {(() => {
+                        const s = stockDetail.stock;
+                        const m = stockDetail.metrics;
+                        const isOwner = user && user.id === s.owner_id;
+                        const qty = tradeQty[s.id] || '';
+                        const oType = orderTypeSel[s.id] || 'market';
 
-                      {/* Chart */}
-                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark">
-                        <h4 className="text-xs font-bold text-slate-200 mb-2">{t.priceChart}</h4>
-                        <div className="h-[220px]">
-                          <canvas ref={chartCanvasRef}></canvas>
-                        </div>
-                      </div>
-
-                      {/* Auto analysis */}
-                      <div className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-2">
-                        <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
-                          <i className="fa-solid fa-chart-simple"></i> {t.techAnalysisTitle}
-                        </h4>
-                        <p className="text-[11px] text-slate-300">
-                          {stockDetail.trend === 'up' ? t.trendUp : stockDetail.trend === 'down' ? t.trendDown : t.trendNeutral}
-                        </p>
-                      </div>
-
-                      {/* Buy/Sell */}
-                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
-                        {tradeMsg.text && (
-                          <div className={`text-xs p-2.5 rounded-lg border ${tradeMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                            {tradeMsg.text}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number" min="1" max="50" placeholder={t.qtyLabel}
-                            value={tradeQty[stockDetail.stock.id] || ''}
-                            onChange={e => setTradeQty({ ...tradeQty, [stockDetail.stock.id]: e.target.value })}
-                            className="w-24 bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
-                          />
-                          <button
-                            onClick={() => handleTrade(stockDetail.stock.id, 'buy')}
-                            disabled={!user || !marketOpen || tradeLoading === stockDetail.stock.id + 'buy'}
-                            className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-2 rounded-lg text-[11px] font-bold transition"
-                          >
-                            {t.buyBtn}
-                          </button>
-                          <button
-                            onClick={() => handleTrade(stockDetail.stock.id, 'sell')}
-                            disabled={!user || !marketOpen || tradeLoading === stockDetail.stock.id + 'sell'}
-                            className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-2 rounded-lg text-[11px] font-bold transition"
-                          >
-                            {t.sellBtn}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Activity feed */}
-                      <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
-                        <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                          <i className="fa-solid fa-clock-rotate-left"></i> {t.activityFeed}
-                        </h4>
-                        {stockDetail.activity.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {stockDetail.activity.map((a, idx) => (
-                              <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
-                                <span className={a.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
-                                  {a.type === 'buy' ? t.userBought : t.userSold} {a.quantity} {t.shares}
-                                </span>
-                                <span className="text-slate-500">${parseFloat(a.price).toFixed(2)}</span>
+                        return (
+                          <React.Fragment>
+                            {/* Header */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark flex justify-between items-center flex-wrap gap-2">
+                              <div>
+                                <h3 className="font-bold text-slate-100 text-sm">{s.ticker} <span className="text-slate-500 font-normal text-xs">— {s.name}</span></h3>
+                                <span className="text-[10px] text-slate-500">{s.category} · {t.ownerLabel}: {s.owner_name || '—'}</span>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-500 py-2 text-center">{t.noActivity}</p>
-                        )}
-                      </div>
+                              <div className="text-right">
+                                <p className="text-emerald-400 font-bold text-xl">${parseFloat(s.current_price).toFixed(2)}</p>
+                                <p className={`text-[11px] font-semibold ${stockDetail.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {stockDetail.changePct >= 0 ? '+' : ''}{stockDetail.changePct}% <span className="text-slate-500 font-normal">({t.sinceCreation})</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* TOP/LEFT: Chart + timeframes */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark">
+                              <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-xs font-bold text-slate-200">{t.priceChart}</h4>
+                                <div className="flex bg-slate-900 rounded-lg border border-borderDark p-0.5">
+                                  {['1m', '5m', '15m', '1d'].map(iv => (
+                                    <button
+                                      key={iv}
+                                      onClick={() => setCandleInterval(iv)}
+                                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition ${candleInterval === iv ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-500'}`}
+                                    >
+                                      {iv === '1d' ? '1D' : iv.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div ref={chartCanvasRef} className="w-full" style={{ height: '260px' }}></div>
+                            </div>
+
+                            {/* Halal Metrics panel */}
+                            <div className="bg-cardDark p-3 rounded-xl border border-borderDark grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
+                              <div><p className="text-[9px] text-slate-500">Halal</p><p className="text-[11px] font-bold text-emerald-400">✓ {m.halalStatus}</p></div>
+                              <div><p className="text-[9px] text-slate-500">{t.marketCap}</p><p className="text-[11px] font-bold text-slate-200">${m.marketCap}</p></div>
+                              <div><p className="text-[9px] text-slate-500">{t.high24h}</p><p className="text-[11px] font-bold text-emerald-400">${m.high24h}</p></div>
+                              <div><p className="text-[9px] text-slate-500">{t.low24h}</p><p className="text-[11px] font-bold text-rose-400">${m.low24h}</p></div>
+                              <div><p className="text-[9px] text-slate-500">{t.volume24h}</p><p className="text-[11px] font-bold text-slate-200">${m.volume24h}</p></div>
+                              <div><p className="text-[9px] text-slate-500">{t.circSupply}</p><p className="text-[11px] font-bold text-slate-200">{m.circulatingSupply}</p></div>
+                            </div>
+
+                            {/* Auto analysis */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-2">
+                              <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                                <i className="fa-solid fa-chart-simple"></i> {t.techAnalysisTitle}
+                              </h4>
+                              <p className="text-[11px] text-slate-300">
+                                {stockDetail.trend === 'up' ? t.trendUp : stockDetail.trend === 'down' ? t.trendDown : t.trendNeutral}
+                              </p>
+                              {s.description && <p className="text-[11px] text-slate-400 pt-1 border-t border-borderDark/50">{s.description}</p>}
+                            </div>
+
+                            {/* RIGHT: Order Book */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-3">
+                              <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                <i className="fa-solid fa-book"></i> {t.orderBookTitle} <span className="text-slate-500 font-normal">· {t.holders}: {m.holdersCount}</span>
+                              </h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <p className="text-[10px] text-emerald-400 font-semibold mb-1">{t.buyWall}</p>
+                                  {stockDetail.orderBook.buyWall.length > 0 ? stockDetail.orderBook.buyWall.map((o, i) => (
+                                    <div key={i} className="flex justify-between text-[10px] text-emerald-400 py-0.5">
+                                      <span>${parseFloat(o.target_price).toFixed(2)}</span><span className="text-slate-500">{o.quantity}</span>
+                                    </div>
+                                  )) : <p className="text-[10px] text-slate-600">{t.emptyBook}</p>}
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-rose-400 font-semibold mb-1">{t.sellWall}</p>
+                                  {stockDetail.orderBook.sellWall.length > 0 ? stockDetail.orderBook.sellWall.map((o, i) => (
+                                    <div key={i} className="flex justify-between text-[10px] text-rose-400 py-0.5">
+                                      <span>${parseFloat(o.target_price).toFixed(2)}</span><span className="text-slate-500">{o.quantity}</span>
+                                    </div>
+                                  )) : <p className="text-[10px] text-slate-600">{t.emptyBook}</p>}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* RIGHT: Trade panel */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                              {tradeMsg.text && (
+                                <div className={`text-xs p-2.5 rounded-lg border ${tradeMsg.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                                  {tradeMsg.text}
+                                </div>
+                              )}
+                              <select
+                                value={oType}
+                                onChange={e => setOrderTypeSel({ ...orderTypeSel, [s.id]: e.target.value })}
+                                className="w-full bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                              >
+                                <option value="market">{t.orderMarket}</option>
+                                <option value="limit">{t.orderLimit}</option>
+                                <option value="stop_loss">{t.orderStopLoss}</option>
+                                <option value="take_profit">{t.orderTakeProfit}</option>
+                              </select>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number" min="1" max="50" placeholder={t.qtyLabel}
+                                  value={qty}
+                                  onChange={e => setTradeQty({ ...tradeQty, [s.id]: e.target.value })}
+                                  className="w-20 bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                />
+                                {oType !== 'market' && (
+                                  <input
+                                    type="number" step="0.01" placeholder={t.targetPriceLabel}
+                                    value={targetPriceInput[s.id] || ''}
+                                    onChange={e => setTargetPriceInput({ ...targetPriceInput, [s.id]: e.target.value })}
+                                    className="flex-1 bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleTrade(s.id, 'buy')}
+                                  disabled={!user || !marketOpen || tradeLoading === s.id + 'buy'}
+                                  className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-2 rounded-lg text-[11px] font-bold transition"
+                                >
+                                  {t.buyBtn}
+                                </button>
+                                <button
+                                  onClick={() => handleTrade(s.id, 'sell')}
+                                  disabled={!user || !marketOpen || tradeLoading === s.id + 'sell'}
+                                  className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-2 rounded-lg text-[11px] font-bold transition"
+                                >
+                                  {t.sellBtn}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Owner panel */}
+                            {isOwner && (
+                              <div className="bg-emerald-500/10 p-4 rounded-xl border border-emerald-500/40 space-y-2">
+                                <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                                  <i className="fa-solid fa-crown"></i> {t.ownerPanelTitle}
+                                </h4>
+                                <p className="text-[10px] text-slate-400">{t.royaltyNote}</p>
+                                {editingDesc ? (
+                                  <div className="space-y-2">
+                                    <textarea
+                                      value={descDraft} maxLength={500}
+                                      onChange={e => setDescDraft(e.target.value)}
+                                      className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                      rows={3}
+                                    />
+                                    <button
+                                      onClick={() => handleUpdateDescription(s.id)}
+                                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-4 rounded-lg text-[11px] transition"
+                                    >
+                                      {t.saveDesc}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setEditingDesc(true)}
+                                    className="text-[11px] text-cyan-400 hover:underline"
+                                  >
+                                    {t.editDesc} {t.descLabel.toLowerCase()}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* BOTTOM: Open orders */}
+                            {user && (
+                              <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                                <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                  <i className="fa-solid fa-hourglass-half"></i> {t.myOpenOrders}
+                                </h4>
+                                {myOpenOrders.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {myOpenOrders.map((o) => (
+                                      <div key={o.id} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
+                                        <span className={o.side === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {o.order_type} · {o.quantity} @ ${parseFloat(o.target_price).toFixed(2)}
+                                        </span>
+                                        <button onClick={() => handleCancelOrder(o.id)} className="text-slate-500 hover:text-rose-400 transition text-[10px]">
+                                          {t.cancelOrder}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500 py-2 text-center">{t.noOpenOrders}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* BOTTOM: Activity / trade history */}
+                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                              <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                <i className="fa-solid fa-clock-rotate-left"></i> {t.activityFeed}
+                              </h4>
+                              {stockDetail.activity.length > 0 ? (
+                                <div className="space-y-1.5">
+                                  {stockDetail.activity.map((a, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
+                                      <span className={a.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
+                                        {a.is_bot && <i className="fa-solid fa-robot mr-1 text-slate-500" title={t.botTrade}></i>}
+                                        {a.type === 'buy' ? t.userBought : t.userSold} {a.quantity} {t.shares}
+                                      </span>
+                                      <span className="text-slate-500">${parseFloat(a.price).toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500 py-2 text-center">{t.noActivity}</p>
+                              )}
+                            </div>
+                          </React.Fragment>
+                        );
+                      })()}
                     </React.Fragment>
                   )}
                 </section>
