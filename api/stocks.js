@@ -88,6 +88,33 @@ export default async function handler(req, res) {
     return res.status(200).json({ stock: created[0] });
   }
 
+  if (req.method === "PATCH") {
+    const token = (req.headers.authorization || "").replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "Avval tizimga kiring" });
+
+    const user = await getUserFromToken(token, supabaseUrl, serviceKey);
+    if (!user) return res.status(401).json({ error: "Sessiya yaroqsiz, qayta kiring" });
+
+    const { stock_id, description } = req.body || {};
+    if (!stock_id) return res.status(400).json({ error: "stock_id kerak" });
+
+    const stockCheck = await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}&select=owner_id`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+    }).then((r) => r.json());
+
+    if (!stockCheck?.[0] || stockCheck[0].owner_id !== user.id) {
+      return res.status(403).json({ error: "Faqat aksiya egasi tahrirlashi mumkin" });
+    }
+
+    await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
+      method: "PATCH",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ description: (description || "").slice(0, 500) })
+    });
+
+    return res.status(200).json({ success: true });
+  }
+
   return res.status(405).json({ error: "Method not allowed" });
 }
 
@@ -121,4 +148,4 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
       body: JSON.stringify({ id: userId, balance: 100 })
     });
   }
-      }
+}
