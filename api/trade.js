@@ -94,6 +94,19 @@ export default async function handler(req, res) {
   const newBalance = type === "buy" ? parseFloat(profile.balance) - total : parseFloat(profile.balance) + total;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = type === "buy" ? currentHolding + qty : currentHolding - qty;
+  const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
+  const oldRealizedPl = holding ? parseFloat(holding.realized_pl || 0) : 0;
+
+  let newAvgCost = oldAvgCost;
+  let newRealizedPl = oldRealizedPl;
+
+  if (type === "buy") {
+    newAvgCost = newHoldingQty > 0 ? ((oldAvgCost * currentHolding) + total) / newHoldingQty : 0;
+  } else {
+    const avgSalePrice = total / qty;
+    newRealizedPl = oldRealizedPl + (avgSalePrice - oldAvgCost) * qty;
+    newAvgCost = newHoldingQty > 0 ? oldAvgCost : 0;
+  }
 
   await Promise.all([
     fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}`, {
@@ -107,11 +120,11 @@ export default async function handler(req, res) {
     holding
       ? fetch(`${supabaseUrl}/rest/v1/stock_holdings?id=eq.${holding.id}`, {
           method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ quantity: newHoldingQty })
+          body: JSON.stringify({ quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
         })
       : fetch(`${supabaseUrl}/rest/v1/stock_holdings`, {
           method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ user_id: user.id, stock_id, quantity: newHoldingQty })
+          body: JSON.stringify({ user_id: user.id, stock_id, quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
         }),
     fetch(`${supabaseUrl}/rest/v1/stock_transactions`, {
       method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
