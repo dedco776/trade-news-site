@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -96,6 +96,7 @@
       const [stockDetail, setStockDetail] = useState(null);
       const [loadingDetail, setLoadingDetail] = useState(false);
       const [orderTypeSel, setOrderTypeSel] = useState({});
+      const [tradeSide, setTradeSide] = useState({});
       const [targetPriceInput, setTargetPriceInput] = useState({});
       const [candleInterval, setCandleInterval] = useState('5m');
       const [candles, setCandles] = useState([]);
@@ -147,7 +148,7 @@
 
         // Market Maker bot — narx foydalanuvchi yo'q paytda ham tebranib tursin
         fetch('/api/market-bot').catch(() => {});
-        const botTimer = setInterval(() => fetch('/api/market-bot').catch(() => {}), 3 * 60 * 1000);
+        const botTimer = setInterval(() => fetch('/api/market-bot').catch(() => {}), 35 * 1000);
 
         return () => {
           listener?.subscription?.unsubscribe();
@@ -250,7 +251,10 @@
           royaltyNote: "Har savdodan 2% bonus balansingizga avtomatik qo'shiladi",
           yourStockLabel: "Sizning aksiyangiz",
           botTrade: "Bot",
-          candleInterval: "Vaqt oralig'i"
+          candleInterval: "Vaqt oralig'i",
+          avgCostLabel: "O'rtacha narx",
+          unrealizedPl: "Foyda/Zarar",
+          realizedPl: "Sotilgan foyda"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -345,7 +349,10 @@
           royaltyNote: "2% с каждой сделки автоматически идёт на ваш баланс",
           yourStockLabel: "Ваша акция",
           botTrade: "Бот",
-          candleInterval: "Интервал"
+          candleInterval: "Интервал",
+          avgCostLabel: "Средняя цена",
+          unrealizedPl: "Прибыль/Убыток",
+          realizedPl: "Реализ. прибыль"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -440,7 +447,10 @@
           royaltyNote: "2% of every trade is automatically added to your balance",
           yourStockLabel: "Your stock",
           botTrade: "Bot",
-          candleInterval: "Interval"
+          candleInterval: "Interval",
+          avgCostLabel: "Avg. cost",
+          unrealizedPl: "P&L",
+          realizedPl: "Realized P&L"
         }
       };
 
@@ -663,7 +673,23 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Xatolik');
-          setTradeMsg({ type: 'success', text: data.pending ? "Buyurtma qo'yildi, bajarilishini kutmoqda." : (type === 'buy' ? "Sotib olindi!" : "Sotildi!") });
+
+          if (data.pending) {
+            setTradeMsg({ type: 'success', text: "Buyurtma qo'yildi, bajarilishini kutmoqda." });
+          } else {
+            const amountText = `$${parseFloat(data.total).toFixed(2)}`;
+            setTradeMsg({
+              type: 'success',
+              text: type === 'buy'
+                ? `Sotib olindi: ${qty} dona, ${amountText} balansdan yechildi.`
+                : `Sotildi: ${qty} dona, ${amountText} balansga qo'shildi.`
+            });
+            // Balansni kutmasdan darhol yangilaymiz
+            if (data.newBalance !== undefined) {
+              setPortfolio(prev => ({ ...prev, balance: data.newBalance }));
+            }
+          }
+
           if (selectedStockId) {
             fetchStockDetail(selectedStockId);
             fetchCandles(selectedStockId, candleInterval);
@@ -1074,6 +1100,7 @@
                         const isOwner = user && user.id === s.owner_id;
                         const qty = tradeQty[s.id] || '';
                         const oType = orderTypeSel[s.id] || 'market';
+                        const side = tradeSide[s.id] || 'buy';
 
                         return (
                           <React.Fragment>
@@ -1163,6 +1190,29 @@
                                   {tradeMsg.text}
                                 </div>
                               )}
+
+                              {/* 1. Avval: Sotib olish yoki Sotish */}
+                              <div className="flex bg-slate-950 p-1 rounded-lg border border-borderDark">
+                                <button
+                                  onClick={() => {
+                                    setTradeSide({ ...tradeSide, [s.id]: 'buy' });
+                                    if (oType === 'stop_loss' || oType === 'take_profit') {
+                                      setOrderTypeSel({ ...orderTypeSel, [s.id]: 'market' });
+                                    }
+                                  }}
+                                  className={`flex-1 py-2 rounded-md text-xs font-bold transition ${side === 'buy' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}
+                                >
+                                  {t.buyBtn}
+                                </button>
+                                <button
+                                  onClick={() => setTradeSide({ ...tradeSide, [s.id]: 'sell' })}
+                                  className={`flex-1 py-2 rounded-md text-xs font-bold transition ${side === 'sell' ? 'bg-rose-500 text-slate-950' : 'text-slate-400'}`}
+                                >
+                                  {t.sellBtn}
+                                </button>
+                              </div>
+
+                              {/* 2. Keyin: buyurtma turi (Sotishda SL/TP ham chiqadi) */}
                               <select
                                 value={oType}
                                 onChange={e => setOrderTypeSel({ ...orderTypeSel, [s.id]: e.target.value })}
@@ -1170,9 +1220,10 @@
                               >
                                 <option value="market">{t.orderMarket}</option>
                                 <option value="limit">{t.orderLimit}</option>
-                                <option value="stop_loss">{t.orderStopLoss}</option>
-                                <option value="take_profit">{t.orderTakeProfit}</option>
+                                {side === 'sell' && <option value="stop_loss">{t.orderStopLoss}</option>}
+                                {side === 'sell' && <option value="take_profit">{t.orderTakeProfit}</option>}
                               </select>
+
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number" min="1" max="50" placeholder={t.qtyLabel}
@@ -1189,22 +1240,25 @@
                                   />
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleTrade(s.id, 'buy')}
-                                  disabled={!user || !marketOpen || tradeLoading === s.id + 'buy'}
-                                  className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-40 text-emerald-400 border border-emerald-500/40 py-2 rounded-lg text-[11px] font-bold transition"
-                                >
-                                  {t.buyBtn}
-                                </button>
-                                <button
-                                  onClick={() => handleTrade(s.id, 'sell')}
-                                  disabled={!user || !marketOpen || tradeLoading === s.id + 'sell'}
-                                  className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-400 border border-rose-500/40 py-2 rounded-lg text-[11px] font-bold transition"
-                                >
-                                  {t.sellBtn}
-                                </button>
-                              </div>
+
+                              {oType === 'market' && qty > 0 && (
+                                <p className="text-[10px] text-slate-500 text-center">
+                                  ≈ ${(parseFloat(qty) * parseFloat(s.current_price)).toFixed(2)}
+                                </p>
+                              )}
+
+                              <button
+                                onClick={() => handleTrade(s.id, side)}
+                                disabled={!user || !marketOpen || tradeLoading === s.id + side}
+                                className={`w-full py-2.5 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
+                                  side === 'buy'
+                                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40'
+                                    : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40'
+                                }`}
+                              >
+                                {tradeLoading === s.id + side && <i className="fa-solid fa-spinner fa-spin mr-1"></i>}
+                                {oType === 'market' ? (side === 'buy' ? t.buyBtn : t.sellBtn) : `${side === 'buy' ? t.buyBtn : t.sellBtn} (${t[oType === 'limit' ? 'orderLimit' : oType === 'stop_loss' ? 'orderStopLoss' : 'orderTakeProfit']})`}
+                              </button>
                             </div>
 
                             {/* Owner panel */}
@@ -1320,17 +1374,36 @@
                       <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
                     ) : portfolio.holdings.length > 0 ? (
                       <div className="space-y-2">
-                        {portfolio.holdings.map((h) => (
-                          <div key={h.id} className="bg-slate-900/70 p-3 rounded-lg border border-borderDark flex justify-between items-center">
-                            <div>
-                              <span className="font-bold text-slate-200 text-xs">{h.user_stocks?.ticker}</span>
-                              <span className="text-slate-500 text-[10px] ml-2">{h.quantity} {t.shares}</span>
+                        {portfolio.holdings.map((h) => {
+                          const qty = parseFloat(h.quantity);
+                          const currentPrice = parseFloat(h.user_stocks?.current_price || 0);
+                          const avgCost = parseFloat(h.avg_cost || 0);
+                          const currentValue = qty * currentPrice;
+                          const unrealizedPl = (currentPrice - avgCost) * qty;
+                          const realizedPl = parseFloat(h.realized_pl || 0);
+                          const plColor = unrealizedPl >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                          return (
+                            <div key={h.id} className="bg-slate-900/70 p-3 rounded-lg border border-borderDark space-y-1">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="font-bold text-slate-200 text-xs">{h.user_stocks?.ticker}</span>
+                                  <span className="text-slate-500 text-[10px] ml-2">{qty} {t.shares} · {t.avgCostLabel} ${avgCost.toFixed(2)}</span>
+                                </div>
+                                <span className="text-slate-200 font-bold text-xs">${currentValue.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-[10px]">
+                                <span className={plColor}>
+                                  {t.unrealizedPl}: {unrealizedPl >= 0 ? '+' : ''}${unrealizedPl.toFixed(2)}
+                                </span>
+                                {realizedPl !== 0 && (
+                                  <span className={realizedPl >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {t.realizedPl}: {realizedPl >= 0 ? '+' : ''}${realizedPl.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <span className="text-emerald-400 font-bold text-xs">
-                              ${(parseFloat(h.quantity) * parseFloat(h.user_stocks?.current_price || 0)).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 py-2 text-center">{t.noHoldings}</p>
@@ -1439,4 +1512,4 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
-</html>
+  </html>
