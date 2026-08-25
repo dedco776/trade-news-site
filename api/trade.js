@@ -108,29 +108,45 @@ export default async function handler(req, res) {
     newAvgCost = newHoldingQty > 0 ? oldAvgCost : 0;
   }
 
-  await Promise.all([
-    fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}`, {
-      method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ balance: newBalance })
-    }),
-    fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
-      method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ current_price: price, total_supply: supply })
-    }),
-    holding
-      ? fetch(`${supabaseUrl}/rest/v1/stock_holdings?id=eq.${holding.id}`, {
-          method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
-        })
-      : fetch(`${supabaseUrl}/rest/v1/stock_holdings`, {
-          method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ user_id: user.id, stock_id, quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
-        }),
-    fetch(`${supabaseUrl}/rest/v1/stock_transactions`, {
-      method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ stock_id, user_id: user.id, type, quantity: qty, price: total / qty })
-    })
-  ]);
+  const balancePatchRes = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}`, {
+    method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify({ balance: newBalance })
+  });
+
+  if (!balancePatchRes.ok) {
+    const errText = await balancePatchRes.text();
+    return res.status(500).json({ error: "Balansni yangilashda xatolik: " + errText });
+  }
+  const balancePatchData = await balancePatchRes.json();
+  const confirmedBalance = balancePatchData?.[0]?.balance !== undefined ? parseFloat(balancePatchData[0].balance) : newBalance;
+
+  const stockPatchRes = await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
+    method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ current_price: price, total_supply: supply })
+  });
+  if (!stockPatchRes.ok) {
+    const errText = await stockPatchRes.text();
+    return res.status(500).json({ error: "Narxni yangilashda xatolik: " + errText });
+  }
+
+  const holdingRes2 = holding
+    ? await fetch(`${supabaseUrl}/rest/v1/stock_holdings?id=eq.${holding.id}`, {
+        method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
+      })
+    : await fetch(`${supabaseUrl}/rest/v1/stock_holdings`, {
+        method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ user_id: user.id, stock_id, quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
+      });
+  if (!holdingRes2.ok) {
+    const errText = await holdingRes2.text();
+    return res.status(500).json({ error: "Ulushni yangilashda xatolik: " + errText });
+  }
+
+  await fetch(`${supabaseUrl}/rest/v1/stock_transactions`, {
+    method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ stock_id, user_id: user.id, type, quantity: qty, price: total / qty })
+  });
 
   // Egasiga 2% royalty (o'zi savdo qilmasa)
   if (stock.owner_id !== user.id) {
@@ -139,7 +155,7 @@ export default async function handler(req, res) {
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
     }).then((r) => r.json());
     const ownerBalance = ownerProfile?.[0]?.balance !== undefined ? parseFloat(ownerProfile[0].balance) : 100;
-    await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+    await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=id`, {
       method: "POST",
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ id: stock.owner_id, balance: ownerBalance + royalty })
@@ -149,7 +165,7 @@ export default async function handler(req, res) {
   // Yangi narx boshqa kutayotgan limit/SL/TP buyurtmalarni ishga tushirishi mumkin
   try { await fillPendingOrders(stock_id, price, supabaseUrl, serviceKey); } catch (e) {}
 
-  return res.status(200).json({ success: true, newPrice: price, total, newBalance });
+  return res.status(200).json({ success: true, newPrice: price, total, newBalance: confirmedBalance });
 }
 
 function priceAt(basePrice, supply) {
