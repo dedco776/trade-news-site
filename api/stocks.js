@@ -95,7 +95,7 @@ export default async function handler(req, res) {
     const user = await getUserFromToken(token, supabaseUrl, serviceKey);
     if (!user) return res.status(401).json({ error: "Sessiya yaroqsiz, qayta kiring" });
 
-    const { stock_id, description } = req.body || {};
+    const { stock_id, description, haram_income_pct } = req.body || {};
     if (!stock_id) return res.status(400).json({ error: "stock_id kerak" });
 
     const stockCheck = await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}&select=owner_id`, {
@@ -106,10 +106,17 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Faqat aksiya egasi tahrirlashi mumkin" });
     }
 
+    const updateFields = {};
+    if (description !== undefined) updateFields.description = String(description).slice(0, 500);
+    if (haram_income_pct !== undefined) {
+      const pct = Math.max(0, Math.min(100, parseFloat(haram_income_pct) || 0));
+      updateFields.haram_income_pct = pct;
+    }
+
     await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
       method: "PATCH",
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ description: (description || "").slice(0, 500) })
+      body: JSON.stringify(updateFields)
     });
 
     return res.status(200).json({ success: true });
@@ -148,4 +155,4 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
       body: JSON.stringify({ id: userId, balance: 100 })
     });
   }
-}
+                }
