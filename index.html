@@ -103,6 +103,7 @@
       const [myOpenOrders, setMyOpenOrders] = useState([]);
       const [editingDesc, setEditingDesc] = useState(false);
       const [descDraft, setDescDraft] = useState('');
+      const [showAllActivity, setShowAllActivity] = useState(false);
       const chartCanvasRef = React.useRef(null);
       const chartInstanceRef = React.useRef(null);
       const candleSeriesRef = React.useRef(null);
@@ -254,7 +255,11 @@
           candleInterval: "Vaqt oralig'i",
           avgCostLabel: "O'rtacha narx",
           unrealizedPl: "Foyda/Zarar",
-          realizedPl: "Sotilgan foyda"
+          realizedPl: "Sotilgan foyda",
+          ownerOnly: "faqat sizga ko'rinadi",
+          showMore: "Ko'proq ko'rsatish",
+          showLess: "Kamroq ko'rsatish",
+          sellOnlyNote: "faqat sotishda"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -352,7 +357,11 @@
           candleInterval: "Интервал",
           avgCostLabel: "Средняя цена",
           unrealizedPl: "Прибыль/Убыток",
-          realizedPl: "Реализ. прибыль"
+          realizedPl: "Реализ. прибыль",
+          ownerOnly: "видно только вам",
+          showMore: "Показать больше",
+          showLess: "Показать меньше",
+          sellOnlyNote: "только продажа"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -450,7 +459,11 @@
           candleInterval: "Interval",
           avgCostLabel: "Avg. cost",
           unrealizedPl: "P&L",
-          realizedPl: "Realized P&L"
+          realizedPl: "Realized P&L",
+          ownerOnly: "visible only to you",
+          showMore: "Show more",
+          showLess: "Show less",
+          sellOnlyNote: "sell only"
         }
       };
 
@@ -470,22 +483,30 @@
           fetchStockDetail(selectedStockId);
           fetchCandles(selectedStockId, candleInterval);
           if (user) fetchMyOpenOrders(selectedStockId);
+          setShowAllActivity(false);
         }
       }, [selectedStockId, candleInterval, user]);
 
       useEffect(() => {
         if (!candles.length || !chartCanvasRef.current || !window.LightweightCharts) return;
 
+        const container = chartCanvasRef.current;
         if (chartInstanceRef.current) {
           chartInstanceRef.current.remove();
           chartInstanceRef.current = null;
         }
 
-        const chart = window.LightweightCharts.createChart(chartCanvasRef.current, {
+        // Konteyner hali kenglik olmagan bo'lishi mumkin (birinchi render) — biroz kutib qayta urinamiz
+        if (container.clientWidth === 0) {
+          const retry = setTimeout(() => setCandles(c => [...c]), 100);
+          return () => clearTimeout(retry);
+        }
+
+        const chart = window.LightweightCharts.createChart(container, {
           layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
           grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
-          width: chartCanvasRef.current.clientWidth,
-          height: 260,
+          width: container.clientWidth,
+          height: 300,
           timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1e293b' },
           rightPriceScale: { borderColor: '#1e293b' }
         });
@@ -493,26 +514,33 @@
         const candleSeries = chart.addCandlestickSeries({
           upColor: '#10b981', downColor: '#ef4444',
           borderUpColor: '#10b981', borderDownColor: '#ef4444',
-          wickUpColor: '#10b981', wickDownColor: '#ef4444'
+          wickUpColor: '#10b981', wickDownColor: '#ef4444',
+          priceScaleId: 'right'
         });
+        candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.3 } });
         candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
 
         const volumeSeries = chart.addHistogramSeries({
           priceFormat: { type: 'volume' },
-          priceScaleId: '',
-          scaleMargins: { top: 0.8, bottom: 0 }
+          priceScaleId: 'volume'
         });
+        volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
         volumeSeries.setData(candles.map((c) => ({
           time: c.time, value: c.volume,
-          color: c.close >= c.open ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'
+          color: c.close >= c.open ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)'
         })));
 
         chart.timeScale().fitContent();
         chartInstanceRef.current = chart;
 
-        const handleResize = () => chart.applyOptions({ width: chartCanvasRef.current.clientWidth });
-        window.addEventListener('resize', handleResize);
-        return () => { window.removeEventListener('resize', handleResize); chart.remove(); };
+        const resizeObserver = new ResizeObserver((entries) => {
+          if (!entries.length || !chartInstanceRef.current) return;
+          const { width } = entries[0].contentRect;
+          if (width > 0) chartInstanceRef.current.applyOptions({ width });
+        });
+        resizeObserver.observe(container);
+
+        return () => { resizeObserver.disconnect(); chart.remove(); };
       }, [candles]);
 
 
@@ -1134,7 +1162,12 @@
                                   ))}
                                 </div>
                               </div>
-                              <div ref={chartCanvasRef} className="w-full" style={{ height: '260px' }}></div>
+                              <div className="relative w-full" style={{ height: '300px' }}>
+                                <div ref={chartCanvasRef} className="w-full h-full"></div>
+                                {candles.length === 0 && (
+                                  <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">{t.loading}</p>
+                                )}
+                              </div>
                             </div>
 
                             {/* Halal Metrics panel */}
@@ -1212,16 +1245,22 @@
                                 </button>
                               </div>
 
-                              {/* 2. Keyin: buyurtma turi (Sotishda SL/TP ham chiqadi) */}
+                              {/* 2. Keyin: buyurtma turi (SL/TP faqat Sotishda ishlaydi, tanlansa avtomatik o'tadi) */}
                               <select
                                 value={oType}
-                                onChange={e => setOrderTypeSel({ ...orderTypeSel, [s.id]: e.target.value })}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setOrderTypeSel({ ...orderTypeSel, [s.id]: val });
+                                  if (val === 'stop_loss' || val === 'take_profit') {
+                                    setTradeSide({ ...tradeSide, [s.id]: 'sell' });
+                                  }
+                                }}
                                 className="w-full bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
                               >
                                 <option value="market">{t.orderMarket}</option>
                                 <option value="limit">{t.orderLimit}</option>
-                                {side === 'sell' && <option value="stop_loss">{t.orderStopLoss}</option>}
-                                {side === 'sell' && <option value="take_profit">{t.orderTakeProfit}</option>}
+                                <option value="stop_loss">{t.orderStopLoss} ({t.sellOnlyNote})</option>
+                                <option value="take_profit">{t.orderTakeProfit} ({t.sellOnlyNote})</option>
                               </select>
 
                               <div className="flex items-center gap-2">
@@ -1319,27 +1358,40 @@
                               </div>
                             )}
 
-                            {/* BOTTOM: Activity / trade history */}
-                            <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
-                              <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                                <i className="fa-solid fa-clock-rotate-left"></i> {t.activityFeed}
-                              </h4>
-                              {stockDetail.activity.length > 0 ? (
-                                <div className="space-y-1.5">
-                                  {stockDetail.activity.map((a, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
-                                      <span className={a.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
-                                        {a.is_bot && <i className="fa-solid fa-robot mr-1 text-slate-500" title={t.botTrade}></i>}
-                                        {a.type === 'buy' ? t.userBought : t.userSold} {a.quantity} {t.shares}
-                                      </span>
-                                      <span className="text-slate-500">${parseFloat(a.price).toFixed(2)}</span>
+                            {/* BOTTOM: Activity / trade history — FAQAT EGASIGA ko'rinadi */}
+                            {isOwner && (
+                              <div className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                                <h4 className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                  <i className="fa-solid fa-clock-rotate-left"></i> {t.activityFeed}
+                                  <span className="text-slate-600 font-normal">({t.ownerOnly})</span>
+                                </h4>
+                                {stockDetail.activity.length > 0 ? (
+                                  <React.Fragment>
+                                    <div className="space-y-1.5">
+                                      {(showAllActivity ? stockDetail.activity : stockDetail.activity.slice(0, 5)).map((a, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-[11px] bg-slate-900/60 px-3 py-2 rounded-lg">
+                                          <span className={a.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
+                                            {a.is_bot && <i className="fa-solid fa-robot mr-1 text-slate-500" title={t.botTrade}></i>}
+                                            {a.type === 'buy' ? t.userBought : t.userSold} {a.quantity} {t.shares}
+                                          </span>
+                                          <span className="text-slate-500">${parseFloat(a.price).toFixed(2)}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-slate-500 py-2 text-center">{t.noActivity}</p>
-                              )}
-                            </div>
+                                    {stockDetail.activity.length > 5 && (
+                                      <button
+                                        onClick={() => setShowAllActivity(!showAllActivity)}
+                                        className="text-[11px] text-cyan-400 hover:underline w-full text-center pt-1"
+                                      >
+                                        {showAllActivity ? t.showLess : t.showMore}
+                                      </button>
+                                    )}
+                                  </React.Fragment>
+                                ) : (
+                                  <p className="text-xs text-slate-500 py-2 text-center">{t.noActivity}</p>
+                                )}
+                              </div>
+                            )}
                           </React.Fragment>
                         );
                       })()}
