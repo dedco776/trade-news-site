@@ -73,6 +73,12 @@ export default async function handler(req, res) {
     const buyWall = orderBook.filter((o) => o.side === "buy").sort((a, b) => b.target_price - a.target_price).slice(0, 10);
     const sellWall = orderBook.filter((o) => o.side === "sell").sort((a, b) => a.target_price - b.target_price).slice(0, 10);
 
+    const haramPct = parseFloat(stock.haram_income_pct || 0);
+    let halalStatus = "100% Halal";
+    let halalLevel = "halal";
+    if (haramPct > 5) { halalStatus = "Haram"; halalLevel = "haram"; }
+    else if (haramPct > 0) { halalStatus = "Shubhali (Doubtful)"; halalLevel = "doubtful"; }
+
     return res.status(200).json({
       stock,
       priceHistory,
@@ -87,10 +93,12 @@ export default async function handler(req, res) {
         volume24h: Number(volume24h.toFixed(2)),
         circulatingSupply: parseFloat(stock.total_supply),
         holdersCount,
-        halalStatus: "100% Halal"
+        halalStatus,
+        halalLevel,
+        haramPct
       }
     });
   } catch (e) {
     return res.status(500).json({ error: "Server xatosi" });
   }
-}
+                                                                   }
