@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
     @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -46,12 +46,19 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Savdo vaqti: Dushanba-Juma, 09:00-18:00, Toshkent vaqti (UTC+5)
+    // Har 5 darajada ochiladigan ramka ranglari (0 = ramka yo'q)
+    const FRAME_COLORS = ['transparent', '#cd7f32', '#c0c0c0', '#ffd700', '#67e8f9', '#a78bfa', '#f472b6'];
+    function frameColor(tier) {
+      const t = parseInt(tier, 10) || 0;
+      return FRAME_COLORS[Math.min(t, FRAME_COLORS.length - 1)];
+    }
+
     function isMarketOpenNow() {
       const now = new Date();
       const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -90,7 +97,7 @@
       const [tradeQty, setTradeQty] = useState({});
       const [tradeLoading, setTradeLoading] = useState(null);
       const [tradeMsg, setTradeMsg] = useState({ type: '', text: '' });
-      const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [] });
+      const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [], level: 1, exp: 0, expInLevel: 0, expForNextLevel: 100, rank: 'Rookie', activeFrame: 'none', maxUnlockedTier: 0, totalCharityGiven: 0 });
       const [loadingPortfolio, setLoadingPortfolio] = useState(false);
       const [selectedStockId, setSelectedStockId] = useState(null);
       const [stockDetail, setStockDetail] = useState(null);
@@ -103,6 +110,8 @@
       const [myOpenOrders, setMyOpenOrders] = useState([]);
       const [editingDesc, setEditingDesc] = useState(false);
       const [descDraft, setDescDraft] = useState('');
+      const [haramPctDraft, setHaramPctDraft] = useState('0');
+      const [charityLoading, setCharityLoading] = useState(false);
       const [showAllActivity, setShowAllActivity] = useState(false);
       const chartCanvasRef = React.useRef(null);
       const chartInstanceRef = React.useRef(null);
@@ -259,7 +268,22 @@
           ownerOnly: "faqat sizga ko'rinadi",
           showMore: "Ko'proq ko'rsatish",
           showLess: "Kamroq ko'rsatish",
-          sellOnlyNote: "faqat sotishda"
+          sellOnlyNote: "faqat sotishda",
+          orderMarketShort: "Market",
+          orderLimitShort: "Limit",
+          orderSlShort: "Stop-Loss",
+          orderTpShort: "Take-Profit",
+          frameSelectLabel: "Ramka tanlang (har 5 darajada yangisi ochiladi)",
+          purificationTitle: "Poklash Kalkulyatori (Purification)",
+          purificationNote: "Ushbu aksiya egasi shubhali daromad ulushini bildirgan",
+          haramPctLabel: "Shubhali daromad ulushi (%)",
+          donateBtn: "Xayriya qilish",
+          donationSuccess: "Xayriya muvaffaqiyatli amalga oshirildi",
+          zakatTitle: "Zakot Kalkulyatori",
+          zakatNote: "Bu soddalashtirilgan hisob-kitob (portfel qiymatining 2.5%) — aniq hukm uchun bilimdon insondan so'rang.",
+          totalWealth: "Jami boylik",
+          zakatDue: "To'lanadigan zakot",
+          totalCharityLabel: "Jami xayriya qilingan"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -361,7 +385,22 @@
           ownerOnly: "видно только вам",
           showMore: "Показать больше",
           showLess: "Показать меньше",
-          sellOnlyNote: "только продажа"
+          sellOnlyNote: "только продажа",
+          orderMarketShort: "Market",
+          orderLimitShort: "Limit",
+          orderSlShort: "Stop-Loss",
+          orderTpShort: "Take-Profit",
+          frameSelectLabel: "Выберите рамку (новая каждые 5 уровней)",
+          purificationTitle: "Калькулятор Очищения (Purification)",
+          purificationNote: "Владелец этой акции указал долю сомнительного дохода",
+          haramPctLabel: "Доля сомнительного дохода (%)",
+          donateBtn: "Пожертвовать",
+          donationSuccess: "Пожертвование выполнено успешно",
+          zakatTitle: "Калькулятор Закята",
+          zakatNote: "Упрощённый расчёт (2.5% от стоимости портфеля) — за точным решением обратитесь к знающему человеку.",
+          totalWealth: "Общее имущество",
+          zakatDue: "Закят к уплате",
+          totalCharityLabel: "Всего пожертвовано"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -463,7 +502,22 @@
           ownerOnly: "visible only to you",
           showMore: "Show more",
           showLess: "Show less",
-          sellOnlyNote: "sell only"
+          sellOnlyNote: "sell only",
+          orderMarketShort: "Market",
+          orderLimitShort: "Limit",
+          orderSlShort: "Stop-Loss",
+          orderTpShort: "Take-Profit",
+          frameSelectLabel: "Choose a frame (new one every 5 levels)",
+          purificationTitle: "Purification Calculator",
+          purificationNote: "This stock's owner declared a doubtful income share",
+          haramPctLabel: "Doubtful income share (%)",
+          donateBtn: "Donate",
+          donationSuccess: "Donation completed successfully",
+          zakatTitle: "Zakat Calculator",
+          zakatNote: "This is a simplified estimate (2.5% of portfolio value) — consult a knowledgeable person for an exact ruling.",
+          totalWealth: "Total wealth",
+          zakatDue: "Zakat due",
+          totalCharityLabel: "Total donated"
         }
       };
 
@@ -631,10 +685,45 @@
           await fetch('/api/stocks', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ stock_id: stockId, description: descDraft })
+            body: JSON.stringify({ stock_id: stockId, description: descDraft, haram_income_pct: haramPctDraft })
           });
           setEditingDesc(false);
           fetchStockDetail(stockId);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function handleCharityDonation(type, amount, stockId) {
+        setCharityLoading(true);
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const res = await fetch('/api/charity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ type, amount, stock_id: stockId })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          setPortfolio(prev => ({ ...prev, balance: data.newBalance, totalCharityGiven: data.newTotalCharity }));
+          setTradeMsg({ type: 'success', text: t.donationSuccess });
+        } catch (e) {
+          setTradeMsg({ type: 'error', text: e.message || 'Xatolik' });
+        }
+        setCharityLoading(false);
+      }
+
+      async function handleSelectFrame(tier) {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const res = await fetch('/api/portfolio', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ active_frame: tier })
+          });
+          if (res.ok) setPortfolio(prev => ({ ...prev, activeFrame: String(tier) }));
         } catch (e) {
           console.error(e);
         }
@@ -647,7 +736,18 @@
           if (!token) return;
           const res = await fetch('/api/portfolio', { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
-          setPortfolio({ balance: data.balance ?? 100, holdings: data.holdings || [] });
+          setPortfolio({
+            balance: data.balance ?? 100,
+            holdings: data.holdings || [],
+            level: data.level ?? 1,
+            exp: data.exp ?? 0,
+            expInLevel: data.expInLevel ?? 0,
+            expForNextLevel: data.expForNextLevel ?? 100,
+            rank: data.rank ?? 'Rookie',
+            activeFrame: data.activeFrame ?? 'none',
+            maxUnlockedTier: data.maxUnlockedTier ?? 0,
+            totalCharityGiven: data.totalCharityGiven ?? 0
+          });
         } catch (e) {
           console.error(e);
         }
@@ -706,15 +806,23 @@
             setTradeMsg({ type: 'success', text: "Buyurtma qo'yildi, bajarilishini kutmoqda." });
           } else {
             const amountText = `$${parseFloat(data.total).toFixed(2)}`;
+            const levelUpText = data.leveledUp ? ` 🎉 Level ${data.newLevel}ga o'tdingiz!` : '';
             setTradeMsg({
               type: 'success',
-              text: type === 'buy'
+              text: (type === 'buy'
                 ? `Sotib olindi: ${qty} dona, ${amountText} balansdan yechildi.`
-                : `Sotildi: ${qty} dona, ${amountText} balansga qo'shildi.`
+                : `Sotildi: ${qty} dona, ${amountText} balansga qo'shildi.`) + levelUpText
             });
-            // Balansni kutmasdan darhol yangilaymiz
+            // Balans, EXP va levelni kutmasdan darhol yangilaymiz
             if (data.newBalance !== undefined) {
-              setPortfolio(prev => ({ ...prev, balance: data.newBalance }));
+              setPortfolio(prev => ({
+                ...prev,
+                balance: data.newBalance,
+                exp: data.newExp ?? prev.exp,
+                level: data.newLevel ?? prev.level,
+                expInLevel: data.newExp !== undefined ? data.newExp % 100 : prev.expInLevel,
+                maxUnlockedTier: data.newLevel !== undefined ? Math.floor(data.newLevel / 5) : prev.maxUnlockedTier
+              }));
             }
           }
 
@@ -808,10 +916,16 @@
                 <div className="w-16 h-6 rounded-lg bg-slate-800/60 animate-pulse"></div>
               ) : user ? (
                 <div className="flex items-center gap-2 bg-slate-900 border border-borderDark px-3 py-1.5 rounded-lg animate-in">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <div
+                    className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center"
+                    style={{ boxShadow: `0 0 0 2px ${frameColor(portfolio.activeFrame)}` }}
+                  >
                     <i className="fa-solid fa-user text-emerald-400 text-[9px]"></i>
                   </div>
                   <span className="text-xs font-semibold text-slate-200">{user.name}</span>
+                  <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                    Lv.{portfolio.level}
+                  </span>
                   <button onClick={handleLogout} className="text-[10px] text-rose-400 ml-1 hover:text-rose-300 transition" title={t.logoutBtn}>
                     <i className="fa-solid fa-right-from-bracket"></i>
                   </button>
@@ -1172,13 +1286,47 @@
 
                             {/* Halal Metrics panel */}
                             <div className="bg-cardDark p-3 rounded-xl border border-borderDark grid grid-cols-3 md:grid-cols-6 gap-2 text-center">
-                              <div><p className="text-[9px] text-slate-500">Halal</p><p className="text-[11px] font-bold text-emerald-400">✓ {m.halalStatus}</p></div>
+                              <div>
+                                <p className="text-[9px] text-slate-500">Halal</p>
+                                <p className={`text-[11px] font-bold ${m.halalLevel === 'haram' ? 'text-rose-400' : m.halalLevel === 'doubtful' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  {m.halalLevel === 'haram' ? '✕' : m.halalLevel === 'doubtful' ? '⚠' : '✓'} {m.halalStatus}
+                                </p>
+                              </div>
                               <div><p className="text-[9px] text-slate-500">{t.marketCap}</p><p className="text-[11px] font-bold text-slate-200">${m.marketCap}</p></div>
                               <div><p className="text-[9px] text-slate-500">{t.high24h}</p><p className="text-[11px] font-bold text-emerald-400">${m.high24h}</p></div>
                               <div><p className="text-[9px] text-slate-500">{t.low24h}</p><p className="text-[11px] font-bold text-rose-400">${m.low24h}</p></div>
                               <div><p className="text-[9px] text-slate-500">{t.volume24h}</p><p className="text-[11px] font-bold text-slate-200">${m.volume24h}</p></div>
                               <div><p className="text-[9px] text-slate-500">{t.circSupply}</p><p className="text-[11px] font-bold text-slate-200">{m.circulatingSupply}</p></div>
                             </div>
+
+                            {/* Purification Calculator — ushbu aksiyadan foyda ko'rgan har bir egaga ko'rinadi */}
+                            {(() => {
+                              const myHolding = portfolio.holdings.find(h => h.stock_id === s.id || h.user_stocks?.ticker === s.ticker);
+                              if (!myHolding || m.haramPct <= 0) return null;
+                              const qty = parseFloat(myHolding.quantity);
+                              const avgCost = parseFloat(myHolding.avg_cost || 0);
+                              const unrealizedProfit = Math.max(0, (parseFloat(s.current_price) - avgCost) * qty);
+                              const purificationDue = unrealizedProfit * (m.haramPct / 100);
+                              if (purificationDue <= 0) return null;
+                              return (
+                                <div className="bg-amber-500/10 p-4 rounded-xl border border-amber-500/40 space-y-2">
+                                  <h4 className="text-xs font-bold text-amber-400 flex items-center gap-2">
+                                    <i className="fa-solid fa-hand-holding-heart"></i> {t.purificationTitle}
+                                  </h4>
+                                  <p className="text-[11px] text-slate-300">{t.purificationNote} ({m.haramPct}%)</p>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-amber-400 font-bold">${purificationDue.toFixed(2)}</span>
+                                    <button
+                                      onClick={() => handleCharityDonation('purification', purificationDue, s.id)}
+                                      disabled={charityLoading}
+                                      className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 px-3 py-1.5 rounded-lg text-[11px] font-bold transition"
+                                    >
+                                      {t.donateBtn}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Auto analysis */}
                             <div className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-2">
@@ -1245,23 +1393,32 @@
                                 </button>
                               </div>
 
-                              {/* 2. Keyin: buyurtma turi (SL/TP faqat Sotishda ishlaydi, tanlansa avtomatik o'tadi) */}
-                              <select
-                                value={oType}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  setOrderTypeSel({ ...orderTypeSel, [s.id]: val });
-                                  if (val === 'stop_loss' || val === 'take_profit') {
-                                    setTradeSide({ ...tradeSide, [s.id]: 'sell' });
-                                  }
-                                }}
-                                className="w-full bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
-                              >
-                                <option value="market">{t.orderMarket}</option>
-                                <option value="limit">{t.orderLimit}</option>
-                                <option value="stop_loss">{t.orderStopLoss} ({t.sellOnlyNote})</option>
-                                <option value="take_profit">{t.orderTakeProfit} ({t.sellOnlyNote})</option>
-                              </select>
+                              {/* 2. Keyin: buyurtma turi — Buy/Sell kabi tugmalar (SL/TP tanlansa avtomatik Sotishga o'tadi) */}
+                              <div className="grid grid-cols-4 gap-1">
+                                {[
+                                  { key: 'market', label: t.orderMarketShort },
+                                  { key: 'limit', label: t.orderLimitShort },
+                                  { key: 'stop_loss', label: t.orderSlShort },
+                                  { key: 'take_profit', label: t.orderTpShort }
+                                ].map(ot => (
+                                  <button
+                                    key={ot.key}
+                                    onClick={() => {
+                                      setOrderTypeSel({ ...orderTypeSel, [s.id]: ot.key });
+                                      if (ot.key === 'stop_loss' || ot.key === 'take_profit') {
+                                        setTradeSide({ ...tradeSide, [s.id]: 'sell' });
+                                      }
+                                    }}
+                                    className={`py-2 rounded-lg text-[10px] font-bold transition border ${
+                                      oType === ot.key
+                                        ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
+                                        : 'bg-slate-950 text-slate-500 border-borderDark'
+                                    }`}
+                                  >
+                                    {ot.label}
+                                  </button>
+                                ))}
+                              </div>
 
                               <div className="flex items-center gap-2">
                                 <input
@@ -1315,6 +1472,15 @@
                                       className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
                                       rows={3}
                                     />
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 block mb-1">{t.haramPctLabel}</label>
+                                      <input
+                                        type="number" min="0" max="100" step="0.1"
+                                        value={haramPctDraft}
+                                        onChange={e => setHaramPctDraft(e.target.value)}
+                                        className="w-24 bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                      />
+                                    </div>
                                     <button
                                       onClick={() => handleUpdateDescription(s.id)}
                                       className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 px-4 rounded-lg text-[11px] transition"
@@ -1324,7 +1490,7 @@
                                   </div>
                                 ) : (
                                   <button
-                                    onClick={() => setEditingDesc(true)}
+                                    onClick={() => { setEditingDesc(true); setHaramPctDraft(String(m.haramPct || 0)); }}
                                     className="text-[11px] text-cyan-400 hover:underline"
                                   >
                                     {t.editDesc} {t.descLabel.toLowerCase()}
@@ -1411,6 +1577,46 @@
                 </section>
               ) : (
                 <React.Fragment>
+                  <section className="bg-cardDark p-4 rounded-xl border border-amber-500/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center"
+                          style={{ boxShadow: `0 0 0 3px ${frameColor(portfolio.activeFrame)}` }}
+                        >
+                          <i className="fa-solid fa-user text-slate-400"></i>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-100">Lv.{portfolio.level} — {portfolio.rank}</p>
+                          <p className="text-[10px] text-slate-500">{portfolio.expInLevel}/{portfolio.expForNextLevel} EXP</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 transition-all"
+                        style={{ width: `${(portfolio.expInLevel / portfolio.expForNextLevel) * 100}%` }}
+                      ></div>
+                    </div>
+                    {portfolio.maxUnlockedTier > 0 && (
+                      <div className="pt-2 border-t border-borderDark/50">
+                        <p className="text-[10px] text-slate-500 mb-1.5">{t.frameSelectLabel}</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {Array.from({ length: portfolio.maxUnlockedTier + 1 }, (_, tier) => (
+                            <button
+                              key={tier}
+                              onClick={() => handleSelectFrame(tier)}
+                              className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center transition"
+                              style={{ boxShadow: `0 0 0 2px ${frameColor(tier)}`, opacity: String(tier) === portfolio.activeFrame ? 1 : 0.5 }}
+                            >
+                              <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
                   <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 text-center">
                     <p className="text-[10px] text-slate-400 font-semibold">{t.yourBalance}</p>
                     <p className="text-emerald-400 font-bold text-2xl mt-1">
@@ -1461,6 +1667,46 @@
                       <p className="text-xs text-slate-500 py-2 text-center">{t.noHoldings}</p>
                     )}
                   </section>
+
+                  {/* Zakat Calculator */}
+                  {(() => {
+                    const holdingsValue = portfolio.holdings.reduce((sum, h) => sum + parseFloat(h.quantity) * parseFloat(h.user_stocks?.current_price || 0), 0);
+                    const totalWealth = parseFloat(portfolio.balance) + holdingsValue;
+                    const zakatDue = totalWealth * 0.025;
+                    return (
+                      <section className="bg-cardDark p-4 rounded-xl border border-cyan-500/40 space-y-2">
+                        <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-2">
+                          <i className="fa-solid fa-mosque"></i> {t.zakatTitle}
+                        </h3>
+                        <p className="text-[10px] text-slate-400">{t.zakatNote}</p>
+                        <div className="flex justify-between items-center bg-slate-900/60 px-3 py-2 rounded-lg">
+                          <span className="text-[11px] text-slate-400">{t.totalWealth}</span>
+                          <span className="text-slate-200 font-bold text-xs">${totalWealth.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-[10px] text-slate-500">{t.zakatDue} (2.5%)</p>
+                            <p className="text-cyan-400 font-bold text-lg">${zakatDue.toFixed(2)}</p>
+                          </div>
+                          <button
+                            onClick={() => handleCharityDonation('zakat', zakatDue, null)}
+                            disabled={charityLoading || zakatDue <= 0 || zakatDue > parseFloat(portfolio.balance)}
+                            className="bg-cyan-500/20 hover:bg-cyan-500/30 disabled:opacity-40 text-cyan-400 border border-cyan-500/40 px-4 py-2 rounded-lg text-xs font-bold transition"
+                          >
+                            {t.donateBtn}
+                          </button>
+                        </div>
+                      </section>
+                    );
+                  })()}
+
+                  {portfolio.totalCharityGiven > 0 && (
+                    <section className="bg-amber-500/10 p-3 rounded-xl border border-amber-500/30 text-center">
+                      <p className="text-[11px] text-amber-400">
+                        <i className="fa-solid fa-hand-holding-heart mr-1"></i> {t.totalCharityLabel}: <strong>${parseFloat(portfolio.totalCharityGiven).toFixed(2)}</strong>
+                      </p>
+                    </section>
+                  )}
                 </React.Fragment>
               )}
             </div>
