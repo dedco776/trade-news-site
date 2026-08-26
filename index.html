@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -196,8 +196,11 @@
         { key: 'Boshqa', uz: 'Boshqa', ru: 'Другое', en: 'Other' }
       ];
 
-      const top5BuyList = ['NVDA', 'AAPL', 'SPUS', 'MSFT', 'AMZN'];
-      const top5SellList = ['TSLA', 'INTC', 'SBUX', 'AMD', 'META'];
+      const [buySignals, setBuySignals] = useState([]);
+      const [sellSignals, setSellSignals] = useState([]);
+      const [loadingSignals, setLoadingSignals] = useState(false);
+      const [currentStockInfo, setCurrentStockInfo] = useState(null);
+      const [loadingStockInfo, setLoadingStockInfo] = useState(false);
 
       useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
@@ -250,6 +253,8 @@
           tp: "TEYK PROFIT",
           sl: "STOP LOSS",
           techLabel: "Texnik Tahlil:",
+          dataSourceNote: "Entry — joriy narx, TP — kunlik yuqori (qarshilik), SL — kunlik past (tayanch) — barchasi jonli bozor ma'lumotlaridan.",
+          sectorLabel: "Sektor:",
           techText: "Narx konsolidatsiya zonasida, aniq trend shakllanmaguncha kutgan ma'qul.",
           fundLabel: "Fundamental Tahlil:",
           fundText: "Bozorda noaniqlik va ehtiyotkorlik ustunlik qilmoqda.",
@@ -367,6 +372,8 @@
           tp: "ТЕЙК ПРОФИТ",
           sl: "СТОП ЛОСС",
           techLabel: "Технический Анализ:",
+          dataSourceNote: "Entry — текущая цена, TP — дневной максимум (сопротивление), SL — дневной минимум (поддержка) — всё из живых рыночных данных.",
+          sectorLabel: "Сектор:",
           techText: "Цена в зоне консолидации, лучше подождать четкого тренда.",
           fundLabel: "Фундаментальный Анализ:",
           fundText: "На рынке преобладает неопределенность и осторожность.",
@@ -484,6 +491,8 @@
           tp: "TAKE PROFIT",
           sl: "STOP LOSS",
           techLabel: "Technical Analysis:",
+          dataSourceNote: "Entry — current price, TP — day's high (resistance), SL — day's low (support) — all from live market data.",
+          sectorLabel: "Sector:",
           techText: "Price is in consolidation zone, better to wait for a clear trend.",
           fundLabel: "Fundamental Analysis:",
           fundText: "Uncertainty prevails in the market.",
@@ -594,7 +603,14 @@
 
       useEffect(() => {
         fetchData(currentSymbol, currentLang);
+        fetchStockInfo(currentSymbol);
       }, [currentSymbol, currentLang]);
+
+      useEffect(() => {
+        fetchSignals();
+        const signalsTimer = setInterval(fetchSignals, 10 * 60 * 1000);
+        return () => clearInterval(signalsTimer);
+      }, []);
 
       useEffect(() => {
         if (activeTab === 'market' && !selectedStockId) fetchStocks();
@@ -621,6 +637,31 @@
           console.error(err);
         }
         setLoadingNews(false);
+      }
+
+      async function fetchStockInfo(symbol) {
+        setLoadingStockInfo(true);
+        try {
+          const res = await fetch(`/api/stock-info?symbol=${symbol}`);
+          const data = await res.json();
+          setCurrentStockInfo(data);
+        } catch (err) {
+          console.error(err);
+        }
+        setLoadingStockInfo(false);
+      }
+
+      async function fetchSignals() {
+        setLoadingSignals(true);
+        try {
+          const res = await fetch('/api/market-signals');
+          const data = await res.json();
+          setBuySignals(data.buyList || []);
+          setSellSignals(data.sellList || []);
+        } catch (err) {
+          console.error(err);
+        }
+        setLoadingSignals(false);
       }
 
       async function getAuthToken() {
@@ -904,9 +945,9 @@
         await supabase.auth.signOut();
       }
 
-      const entryPrice = stockPrice ? stockPrice.toFixed(2) : "313.33";
-      const tpPrice = stockPrice ? (stockPrice * 1.05).toFixed(2) : "329.00";
-      const slPrice = stockPrice ? (stockPrice * 0.95).toFixed(2) : "297.66";
+      const entryPrice = currentStockInfo?.entry ? currentStockInfo.entry.toFixed(2) : (stockPrice ? stockPrice.toFixed(2) : "—");
+      const tpPrice = currentStockInfo?.tp ? currentStockInfo.tp.toFixed(2) : "—";
+      const slPrice = currentStockInfo?.sl ? currentStockInfo.sl.toFixed(2) : "—";
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-4 space-y-5">
@@ -1002,9 +1043,16 @@
               </section>
 
               <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 space-y-4">
-                <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                  <i className="fa-solid fa-circle-check text-[10px]"></i>
-                  <span>{currentSymbol} {t.analysisTitle}</span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                    <i className="fa-solid fa-circle-check text-[10px]"></i>
+                    <span>{currentSymbol} {t.analysisTitle}</span>
+                  </div>
+                  {currentStockInfo?.halalLevel && (
+                    <span className={`text-[10px] font-bold border rounded px-2 py-1 ${currentStockInfo.halalLevel === 'haram' ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'}`}>
+                      {currentStockInfo.halalLevel === 'haram' ? '✕' : '✓'} {currentStockInfo.halalStatus}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1023,8 +1071,10 @@
                 </div>
 
                 <div className="text-[11px] space-y-1 text-slate-300 pt-1">
-                  <p><strong className="text-emerald-400">● {t.techLabel}</strong> {t.techText}</p>
-                  <p><strong className="text-cyan-400">● {t.fundLabel}</strong> {t.fundText}</p>
+                  <p><strong className="text-emerald-400">● {t.techLabel}</strong> {t.dataSourceNote}</p>
+                  {currentStockInfo?.industry && (
+                    <p><strong className="text-cyan-400">● {t.sectorLabel}</strong> {currentStockInfo.industry}</p>
+                  )}
                 </div>
               </section>
 
@@ -1034,16 +1084,24 @@
                     <i className="fa-solid fa-arrow-trend-up"></i> {t.buyTitle}
                   </h3>
                   <div className="space-y-2">
-                    {top5BuyList.map((sym) => (
+                    {loadingSignals && buySignals.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-3"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                    ) : buySignals.map((sig) => (
                       <div
-                        key={sym}
-                        onClick={() => setCurrentSymbol(sym)}
+                        key={sig.symbol}
+                        onClick={() => setCurrentSymbol(sig.symbol)}
                         className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-emerald-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
                       >
-                        <span className="font-bold text-slate-200">{sym}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[8px] font-bold border rounded px-1 ${sig.halalLevel === 'haram' ? 'text-rose-400 border-rose-500/30' : 'text-emerald-400 border-emerald-500/30'}`}>
+                            {sig.halalLevel === 'haram' ? '✕' : '✓'}
+                          </span>
+                          <span className="font-bold text-slate-200">{sig.symbol}</span>
+                          <span className="text-emerald-400 text-[10px]">+{sig.changePct?.toFixed(2)}%</span>
+                        </div>
                         <div className="font-mono text-[11px] space-x-2">
-                          <span className="text-emerald-400">Entry: ${(stockPrice ? (stockPrice * 0.98).toFixed(2) : '307.06')}</span>
-                          <span className="text-cyan-400">TP: ${(stockPrice ? (stockPrice * 1.06).toFixed(2) : '332.13')}</span>
+                          <span className="text-emerald-400">Entry: ${sig.entry?.toFixed(2)}</span>
+                          <span className="text-cyan-400">TP: ${sig.tp?.toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
@@ -1055,16 +1113,24 @@
                     <i className="fa-solid fa-arrow-trend-down"></i> {t.sellTitle}
                   </h3>
                   <div className="space-y-2">
-                    {top5SellList.map((sym) => (
+                    {loadingSignals && sellSignals.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-3"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+                    ) : sellSignals.map((sig) => (
                       <div
-                        key={sym}
-                        onClick={() => setCurrentSymbol(sym)}
+                        key={sig.symbol}
+                        onClick={() => setCurrentSymbol(sig.symbol)}
                         className="bg-slate-900/80 p-2.5 rounded-lg border border-borderDark hover:border-rose-500/50 hover:bg-slate-900 transition cursor-pointer flex justify-between items-center text-xs"
                       >
-                        <span className="font-bold text-slate-200">{sym}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[8px] font-bold border rounded px-1 ${sig.halalLevel === 'haram' ? 'text-rose-400 border-rose-500/30' : 'text-emerald-400 border-emerald-500/30'}`}>
+                            {sig.halalLevel === 'haram' ? '✕' : '✓'}
+                          </span>
+                          <span className="font-bold text-slate-200">{sig.symbol}</span>
+                          <span className="text-rose-400 text-[10px]">{sig.changePct?.toFixed(2)}%</span>
+                        </div>
                         <div className="font-mono text-[11px] space-x-2">
-                          <span className="text-rose-400">Entry: ${(stockPrice ? (stockPrice * 1.02).toFixed(2) : '319.60')}</span>
-                          <span className="text-slate-400">SL: ${(stockPrice ? (stockPrice * 1.08).toFixed(2) : '338.40')}</span>
+                          <span className="text-rose-400">Entry: ${sig.entry?.toFixed(2)}</span>
+                          <span className="text-slate-400">SL: ${sig.sl?.toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
