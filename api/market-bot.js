@@ -118,7 +118,7 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
   let supply = parseFloat(stock.total_supply);
   let price = priceAt(basePrice, supply);
   let total = 0;
-  const isSell = order.side === "sell" || order.order_type === "stop_loss" || order.order_type === "take_profit";
+  const isSell = order.side === "sell";
 
   if (!isSell) {
     for (let i = 0; i < qty; i++) { total += price; supply += 1; price = priceAt(basePrice, supply); }
@@ -130,6 +130,8 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
   }
 
   const newBalance = isSell ? parseFloat(profile.balance) + total : parseFloat(profile.balance) - total;
+  const newExp = parseInt(profile.exp || 0, 10) + 10;
+  const newLevel = Math.floor(newExp / 100) + 1;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = isSell ? currentHolding - qty : currentHolding + qty;
   const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
@@ -149,7 +151,7 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
   await Promise.all([
     fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${order.user_id}`, {
       method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ balance: newBalance })
+      body: JSON.stringify({ balance: newBalance, exp: newExp, level: newLevel })
     }),
     fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${order.stock_id}`, {
       method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -195,4 +197,4 @@ async function cancelOrder(orderId, supabaseUrl, serviceKey) {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ status: "cancelled" })
   });
-                                     }
+             }
