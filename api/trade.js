@@ -35,16 +35,18 @@ export default async function handler(req, res) {
     const tp = parseFloat(target_price);
     if (!tp || tp <= 0) return res.status(400).json({ error: "Maqsad narx (target price) kerak" });
 
-    if ((orderType === "stop_loss" || orderType === "take_profit")) {
+    // SL/TP endi ham Sotib olish, ham Sotish uchun ishlaydi.
+    // Faqat "Sotish" tanlanganda ulush yetarliligi tekshiriladi.
+    if (type === "sell") {
       const holdingCheck = await fetch(
         `${supabaseUrl}/rest/v1/stock_holdings?user_id=eq.${user.id}&stock_id=eq.${stock_id}&select=quantity`,
         { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
       ).then((r) => r.json());
       const owned = holdingCheck?.[0]?.quantity ? parseFloat(holdingCheck[0].quantity) : 0;
-      if (owned < qty) return res.status(400).json({ error: "Sizda yetarli ulush yo'q (SL/TP faqat egalik qilingan ulush uchun)" });
+      if (owned < qty) return res.status(400).json({ error: "Sizda yetarli ulush yo'q" });
     }
 
-    const side = orderType === "limit" ? type : "sell";
+    const side = type; // Tanlangan tomon (buy/sell) barcha order turlari uchun saqlanadi
 
     const insertRes = await fetch(`${supabaseUrl}/rest/v1/stock_orders`, {
       method: "POST",
@@ -52,7 +54,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({ stock_id, user_id: user.id, side, order_type: orderType, target_price: tp, quantity: qty, status: "pending" })
     });
 
-    if (!insertRes.ok) return res.status(400).json({ error: "Buyurtma yaratilmadi" });
+    if (!insertRes.ok) {
+      const errText = await insertRes.text();
+      return res.status(400).json({ error: "Buyurtma yaratilmadi: " + errText });
+    }
     const created = await insertRes.json();
     return res.status(200).json({ success: true, order: created[0], pending: true });
   }
@@ -92,6 +97,10 @@ export default async function handler(req, res) {
   }
 
   const newBalance = type === "buy" ? parseFloat(profile.balance) - total : parseFloat(profile.balance) + total;
+
+  // Har bir bajarilgan savdo uchun +10 EXP, har 100 EXP = 1 daraja
+  const newExp = parseInt(profile.exp || 0, 10) + 10;
+  const newLevel = Math.floor(newExp / 100) + 1;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = type === "buy" ? currentHolding + qty : currentHolding - qty;
   const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
@@ -110,7 +119,7 @@ export default async function handler(req, res) {
 
   const balancePatchRes = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}`, {
     method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
-    body: JSON.stringify({ balance: newBalance })
+    body: JSON.stringify({ balance: newBalance, exp: newExp, level: newLevel })
   });
 
   if (!balancePatchRes.ok) {
@@ -119,6 +128,7 @@ export default async function handler(req, res) {
   }
   const balancePatchData = await balancePatchRes.json();
   const confirmedBalance = balancePatchData?.[0]?.balance !== undefined ? parseFloat(balancePatchData[0].balance) : newBalance;
+  const leveledUp = newLevel > parseInt(profile.level || 1, 10);
 
   const stockPatchRes = await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
     method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -165,7 +175,7 @@ export default async function handler(req, res) {
   // Yangi narx boshqa kutayotgan limit/SL/TP buyurtmalarni ishga tushirishi mumkin
   try { await fillPendingOrders(stock_id, price, supabaseUrl, serviceKey); } catch (e) {}
 
-  return res.status(200).json({ success: true, newPrice: price, total, newBalance: confirmedBalance });
+  return res.status(200).json({ success: true, newPrice: price, total, newBalance: confirmedBalance, newExp, newLevel, leveledUp });
 }
 
 function priceAt(basePrice, supply) {
@@ -204,4 +214,4 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
       body: JSON.stringify({ id: userId, balance: 100 })
     });
   }
-      }
+  }
