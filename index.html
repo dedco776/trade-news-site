@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Lightweight Charts olib tashlandi — tashqi CDN'ga bog'liq bo'lmagan o'z SVG grafigimiz ishlatiladi -->
   <style>
     body { background-color: #0b1120; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
     @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -67,6 +67,78 @@
       const hour = tashkent.getHours();
       if (day === 0 || day === 6) return false;
       return hour >= 9 && hour < 18;
+    }
+
+    // O'z-o'zidan yetarli SVG shamlar grafigi — hech qanday tashqi kutubxona kerak emas,
+    // shuning uchun CDN'ning ishlab-ishlamasligiga bog'liq bo'lmaydi.
+    function CandleChart({ candles }) {
+      const scrollRef = React.useRef(null);
+
+      React.useEffect(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+        }
+      }, [candles]);
+
+      if (!candles || candles.length === 0) {
+        return <p className="text-xs text-slate-500 text-center py-24">Yuklanmoqda...</p>;
+      }
+
+      const CANDLE_W = 8;
+      const GAP = 4;
+      const STEP = CANDLE_W + GAP;
+      const CHART_H = 220;
+      const VOL_H = 60;
+      const TOTAL_H = CHART_H + VOL_H + 10;
+      const PADDING_LEFT = 4;
+      const width = Math.max(candles.length * STEP + PADDING_LEFT + 50, 300);
+
+      const highs = candles.map(c => c.high);
+      const lows = candles.map(c => c.low);
+      let maxPrice = Math.max(...highs);
+      let minPrice = Math.min(...lows);
+      if (maxPrice === minPrice) { maxPrice += 1; minPrice -= 1; }
+      const pad = (maxPrice - minPrice) * 0.08;
+      maxPrice += pad; minPrice -= pad;
+
+      const maxVol = Math.max(...candles.map(c => c.volume), 1);
+
+      const yForPrice = (p) => CHART_H - ((p - minPrice) / (maxPrice - minPrice)) * CHART_H;
+
+      return (
+        <div ref={scrollRef} className="w-full overflow-x-auto">
+          <svg width={width} height={TOTAL_H} style={{ minWidth: '100%' }}>
+            {/* Gorizontal grid chiziqlari */}
+            {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
+              <line key={i} x1={0} x2={width} y1={CHART_H * f} y2={CHART_H * f} stroke="#1e293b" strokeWidth="1" />
+            ))}
+            {/* Narx yorliqlari */}
+            <text x={width - 4} y={10} fill="#64748b" fontSize="9" textAnchor="end">${maxPrice.toFixed(2)}</text>
+            <text x={width - 4} y={CHART_H - 2} fill="#64748b" fontSize="9" textAnchor="end">${minPrice.toFixed(2)}</text>
+
+            {candles.map((c, i) => {
+              const x = PADDING_LEFT + i * STEP;
+              const isUp = c.close >= c.open;
+              const color = isUp ? '#10b981' : '#ef4444';
+              const yHigh = yForPrice(c.high);
+              const yLow = yForPrice(c.low);
+              const yOpen = yForPrice(c.open);
+              const yClose = yForPrice(c.close);
+              const bodyTop = Math.min(yOpen, yClose);
+              const bodyH = Math.max(Math.abs(yClose - yOpen), 1);
+              const volH = (c.volume / maxVol) * VOL_H;
+
+              return (
+                <g key={i}>
+                  <line x1={x + CANDLE_W / 2} x2={x + CANDLE_W / 2} y1={yHigh} y2={yLow} stroke={color} strokeWidth="1" />
+                  <rect x={x} y={bodyTop} width={CANDLE_W} height={bodyH} fill={color} />
+                  <rect x={x} y={CHART_H + 10 + (VOL_H - volH)} width={CANDLE_W} height={volH} fill={color} opacity="0.5" />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      );
     }
 
     function App() {
@@ -113,10 +185,7 @@
       const [haramPctDraft, setHaramPctDraft] = useState('0');
       const [charityLoading, setCharityLoading] = useState(false);
       const [showAllActivity, setShowAllActivity] = useState(false);
-      const chartCanvasRef = React.useRef(null);
-      const chartInstanceRef = React.useRef(null);
-      const candleSeriesRef = React.useRef(null);
-      const volumeSeriesRef = React.useRef(null);
+      const chartCanvasRef = React.useRef(null); // hozircha ishlatilmaydi, kelajakda kerak bo'lishi mumkin
 
       const categories = [
         { key: 'Texnologiya', uz: 'Texnologiya', ru: 'Технологии', en: 'Technology' },
@@ -540,63 +609,6 @@
           setShowAllActivity(false);
         }
       }, [selectedStockId, candleInterval, user]);
-
-      useEffect(() => {
-        if (!candles.length || !chartCanvasRef.current || !window.LightweightCharts) return;
-
-        const container = chartCanvasRef.current;
-        if (chartInstanceRef.current) {
-          chartInstanceRef.current.remove();
-          chartInstanceRef.current = null;
-        }
-
-        // Konteyner hali kenglik olmagan bo'lishi mumkin (birinchi render) — biroz kutib qayta urinamiz
-        if (container.clientWidth === 0) {
-          const retry = setTimeout(() => setCandles(c => [...c]), 100);
-          return () => clearTimeout(retry);
-        }
-
-        const chart = window.LightweightCharts.createChart(container, {
-          layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
-          grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
-          width: container.clientWidth,
-          height: 300,
-          timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1e293b' },
-          rightPriceScale: { borderColor: '#1e293b' }
-        });
-
-        const candleSeries = chart.addCandlestickSeries({
-          upColor: '#10b981', downColor: '#ef4444',
-          borderUpColor: '#10b981', borderDownColor: '#ef4444',
-          wickUpColor: '#10b981', wickDownColor: '#ef4444',
-          priceScaleId: 'right'
-        });
-        candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.3 } });
-        candleSeries.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
-
-        const volumeSeries = chart.addHistogramSeries({
-          priceFormat: { type: 'volume' },
-          priceScaleId: 'volume'
-        });
-        volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
-        volumeSeries.setData(candles.map((c) => ({
-          time: c.time, value: c.volume,
-          color: c.close >= c.open ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)'
-        })));
-
-        chart.timeScale().fitContent();
-        chartInstanceRef.current = chart;
-
-        const resizeObserver = new ResizeObserver((entries) => {
-          if (!entries.length || !chartInstanceRef.current) return;
-          const { width } = entries[0].contentRect;
-          if (width > 0) chartInstanceRef.current.applyOptions({ width });
-        });
-        resizeObserver.observe(container);
-
-        return () => { resizeObserver.disconnect(); chart.remove(); };
-      }, [candles]);
-
 
       async function fetchData(symbol, lang) {
         setLoadingNews(true);
@@ -1201,23 +1213,31 @@
                     <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
                   ) : demoStocks.length > 0 ? (
                     <div className="space-y-2">
-                      {demoStocks.map((stock) => (
-                        <div
-                          key={stock.id}
-                          onClick={() => setSelectedStockId(stock.id)}
-                          className="bg-slate-900/70 p-3 rounded-lg border border-borderDark hover:border-emerald-500/40 transition cursor-pointer flex justify-between items-center"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-200 text-xs">{stock.ticker}</span>
-                            <span className="text-slate-500 text-[10px] ml-2">{stock.name}</span>
-                            <span className="block text-[9px] text-slate-600 mt-0.5">{stock.category}</span>
+                      {demoStocks.map((stock) => {
+                        const haramPct = parseFloat(stock.haram_income_pct || 0);
+                        const halalIcon = haramPct > 5 ? '✕' : haramPct > 0 ? '⚠' : '✓';
+                        const halalColor = haramPct > 5 ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : haramPct > 0 ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+                        return (
+                          <div
+                            key={stock.id}
+                            onClick={() => setSelectedStockId(stock.id)}
+                            className="bg-slate-900/70 p-3 rounded-lg border border-borderDark hover:border-emerald-500/40 transition cursor-pointer flex justify-between items-center"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[9px] font-bold border rounded px-1.5 py-0.5 ${halalColor}`}>{halalIcon}</span>
+                              <div>
+                                <span className="font-bold text-slate-200 text-xs">{stock.ticker}</span>
+                                <span className="text-slate-500 text-[10px] ml-2">{stock.name}</span>
+                                <span className="block text-[9px] text-slate-600 mt-0.5">{stock.category}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-emerald-400 font-bold text-sm">${parseFloat(stock.current_price).toFixed(2)}</span>
+                              <i className="fa-solid fa-chevron-right text-slate-600 text-[10px]"></i>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-emerald-400 font-bold text-sm">${parseFloat(stock.current_price).toFixed(2)}</span>
-                            <i className="fa-solid fa-chevron-right text-slate-600 text-[10px]"></i>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 py-2 text-center">{t.noStocks}</p>
@@ -1276,11 +1296,8 @@
                                   ))}
                                 </div>
                               </div>
-                              <div className="relative w-full" style={{ height: '300px' }}>
-                                <div ref={chartCanvasRef} className="w-full h-full"></div>
-                                {candles.length === 0 && (
-                                  <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-500">{t.loading}</p>
-                                )}
+                              <div className="relative w-full">
+                                <CandleChart candles={candles} />
                               </div>
                             </div>
 
@@ -1375,12 +1392,7 @@
                               {/* 1. Avval: Sotib olish yoki Sotish */}
                               <div className="flex bg-slate-950 p-1 rounded-lg border border-borderDark">
                                 <button
-                                  onClick={() => {
-                                    setTradeSide({ ...tradeSide, [s.id]: 'buy' });
-                                    if (oType === 'stop_loss' || oType === 'take_profit') {
-                                      setOrderTypeSel({ ...orderTypeSel, [s.id]: 'market' });
-                                    }
-                                  }}
+                                  onClick={() => setTradeSide({ ...tradeSide, [s.id]: 'buy' })}
                                   className={`flex-1 py-2 rounded-md text-xs font-bold transition ${side === 'buy' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}
                                 >
                                   {t.buyBtn}
@@ -1393,7 +1405,7 @@
                                 </button>
                               </div>
 
-                              {/* 2. Keyin: buyurtma turi — Buy/Sell kabi tugmalar (SL/TP tanlansa avtomatik Sotishga o'tadi) */}
+                              {/* 2. Keyin: buyurtma turi — Buy/Sell kabi tugmalar (SL/TP endi ikkalasida ham ishlaydi) */}
                               <div className="grid grid-cols-4 gap-1">
                                 {[
                                   { key: 'market', label: t.orderMarketShort },
@@ -1403,12 +1415,7 @@
                                 ].map(ot => (
                                   <button
                                     key={ot.key}
-                                    onClick={() => {
-                                      setOrderTypeSel({ ...orderTypeSel, [s.id]: ot.key });
-                                      if (ot.key === 'stop_loss' || ot.key === 'take_profit') {
-                                        setTradeSide({ ...tradeSide, [s.id]: 'sell' });
-                                      }
-                                    }}
+                                    onClick={() => setOrderTypeSel({ ...orderTypeSel, [s.id]: ot.key })}
                                     className={`py-2 rounded-lg text-[10px] font-bold transition border ${
                                       oType === ot.key
                                         ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
