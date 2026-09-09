@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -66,7 +66,7 @@
       const day = tashkent.getDay();
       const hour = tashkent.getHours();
       if (day === 0 || day === 6) return false;
-      return hour >= 9 && hour < 18;
+      return hour >= 7 && hour < 22;
     }
 
     // O'z-o'zidan yetarli SVG shamlar grafigi — hech qanday tashqi kutubxona kerak emas,
@@ -177,6 +177,13 @@
       const [orderTypeSel, setOrderTypeSel] = useState({});
       const [tradeSide, setTradeSide] = useState({});
       const [targetPriceInput, setTargetPriceInput] = useState({});
+      const [showSlTp, setShowSlTp] = useState({});
+      const [attachSl, setAttachSl] = useState({});
+      const [attachTp, setAttachTp] = useState({});
+      const [protectingHoldingId, setProtectingHoldingId] = useState(null);
+      const [protectSl, setProtectSl] = useState('');
+      const [protectTp, setProtectTp] = useState('');
+      const [protectQty, setProtectQty] = useState('');
       const [candleInterval, setCandleInterval] = useState('5m');
       const [candles, setCandles] = useState([]);
       const [myOpenOrders, setMyOpenOrders] = useState([]);
@@ -245,6 +252,7 @@
           navHome: "Bosh sahifa",
           navMarket: "Aksiyalar Bozori",
           navPortfolio: "Portfolio",
+          navProfile: "Profil",
           chartTitle: "DCT Grafik Tahlil",
           buyTitle: "TOP 5 BUY Signallar",
           sellTitle: "TOP 5 SELL Signallar",
@@ -275,7 +283,7 @@
           confirmEmail: "Ro'yxatdan o'tdingiz! Emailingizni tasdiqlang, so'ng tizimga kiring.",
           marketOpenLabel: "Bozor OCHIQ",
           marketClosedLabel: "Bozor YOPIQ",
-          marketHoursNote: "Savdo vaqti: Dush-Juma, 09:00-18:00 (Toshkent vaqti)",
+          marketHoursNote: "Savdo vaqti: Dush-Juma, 07:00-22:00 (Toshkent vaqti)",
           demoNote: "Bu demo/soxta pul — o'rganish va tajriba uchun, haqiqiy pul emas.",
           yourBalance: "Balansingiz",
           createStockTitle: "O'z aksiyangizni yarating",
@@ -332,7 +340,7 @@
           descLabel: "Kompaniya haqida (tavsif)",
           saveDesc: "Saqlash",
           editDesc: "Tahrirlash",
-          royaltyNote: "Har savdodan 2% bonus balansingizga avtomatik qo'shiladi",
+          royaltyNote: "Har HAQIQIY foydalanuvchi savdosidan 2% bonus balansingizga avtomatik qo'shiladi (bot savdolaridan emas)",
           yourStockLabel: "Sizning aksiyangiz",
           botTrade: "Bot",
           candleInterval: "Vaqt oralig'i",
@@ -357,13 +365,24 @@
           zakatNote: "Bu soddalashtirilgan hisob-kitob (portfel qiymatining 2.5%) — aniq hukm uchun bilimdon insondan so'rang.",
           totalWealth: "Jami boylik",
           zakatDue: "To'lanadigan zakot",
-          totalCharityLabel: "Jami xayriya qilingan"
+          totalCharityLabel: "Jami xayriya qilingan",
+          expHint: "Faqat FOYDA bilan sotilgan savdo EXP beradi",
+          noFramesYet: "Hali hech qanday ramka ochilmagan — Lv.5 ga yeting",
+          moreComingSoon: "Tez orada: yutuqlar, nishonlar va boshqa bezaklar qo'shiladi",
+          executionType: "Bajarilish turi",
+          attachSlTp: "Himoya qo'shish (SL/TP)",
+          slLabel: "Stop-Loss narxi",
+          tpLabel: "Take-Profit narxi",
+          optional: "ixtiyoriy",
+          protectHolding: "Himoya qo'shish",
+          protectHoldingDesc: "Ushbu ulush uchun Stop-Loss yoki Take-Profit qo'ying"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
           navHome: "Главная",
           navMarket: "Рынок Акций",
           navPortfolio: "Портфель",
+          navProfile: "Профиль",
           chartTitle: "DCT График Анализ",
           buyTitle: "ТОП 5 BUY Сигналы",
           sellTitle: "ТОП 5 SELL Сигналы",
@@ -394,7 +413,7 @@
           confirmEmail: "Регистрация прошла! Подтвердите email, затем войдите.",
           marketOpenLabel: "Рынок ОТКРЫТ",
           marketClosedLabel: "Рынок ЗАКРЫТ",
-          marketHoursNote: "Время торгов: Пн-Пт, 09:00-18:00 (по Ташкенту)",
+          marketHoursNote: "Время торгов: Пн-Пт, 07:00-22:00 (по Ташкенту)",
           demoNote: "Это демо-деньги — только для практики, не настоящие.",
           yourBalance: "Ваш баланс",
           createStockTitle: "Создайте свою акцию",
@@ -451,7 +470,7 @@
           descLabel: "О компании (описание)",
           saveDesc: "Сохранить",
           editDesc: "Редактировать",
-          royaltyNote: "2% с каждой сделки автоматически идёт на ваш баланс",
+          royaltyNote: "2% с каждой РЕАЛЬНОЙ сделки пользователя автоматически идёт на ваш баланс (не от сделок бота)",
           yourStockLabel: "Ваша акция",
           botTrade: "Бот",
           candleInterval: "Интервал",
@@ -476,13 +495,24 @@
           zakatNote: "Упрощённый расчёт (2.5% от стоимости портфеля) — за точным решением обратитесь к знающему человеку.",
           totalWealth: "Общее имущество",
           zakatDue: "Закят к уплате",
-          totalCharityLabel: "Всего пожертвовано"
+          totalCharityLabel: "Всего пожертвовано",
+          expHint: "EXP даётся только за ПРИБЫЛЬНУЮ продажу",
+          noFramesYet: "Пока нет открытых рамок — достигните Lv.5",
+          moreComingSoon: "Скоро: достижения, значки и другие украшения",
+          executionType: "Тип исполнения",
+          attachSlTp: "Добавить защиту (SL/TP)",
+          slLabel: "Цена Stop-Loss",
+          tpLabel: "Цена Take-Profit",
+          optional: "необязательно",
+          protectHolding: "Добавить защиту",
+          protectHoldingDesc: "Установите Stop-Loss или Take-Profit для этой доли"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
           navHome: "Home",
           navMarket: "Stock Market",
           navPortfolio: "Portfolio",
+          navProfile: "Profile",
           chartTitle: "DCT Chart Analysis",
           buyTitle: "TOP 5 BUY Signals",
           sellTitle: "TOP 5 SELL Signals",
@@ -513,7 +543,7 @@
           confirmEmail: "Registered! Please confirm your email, then log in.",
           marketOpenLabel: "Market OPEN",
           marketClosedLabel: "Market CLOSED",
-          marketHoursNote: "Trading hours: Mon-Fri, 09:00-18:00 (Tashkent time)",
+          marketHoursNote: "Trading hours: Mon-Fri, 07:00-22:00 (Tashkent time)",
           demoNote: "This is demo money for practice only, not real currency.",
           yourBalance: "Your Balance",
           createStockTitle: "Create your own stock",
@@ -570,7 +600,7 @@
           descLabel: "About the company (description)",
           saveDesc: "Save",
           editDesc: "Edit",
-          royaltyNote: "2% of every trade is automatically added to your balance",
+          royaltyNote: "2% of every REAL user trade is automatically added to your balance (not from bot trades)",
           yourStockLabel: "Your stock",
           botTrade: "Bot",
           candleInterval: "Interval",
@@ -595,7 +625,17 @@
           zakatNote: "This is a simplified estimate (2.5% of portfolio value) — consult a knowledgeable person for an exact ruling.",
           totalWealth: "Total wealth",
           zakatDue: "Zakat due",
-          totalCharityLabel: "Total donated"
+          totalCharityLabel: "Total donated",
+          expHint: "EXP is only earned from a PROFITABLE sale",
+          noFramesYet: "No frames unlocked yet — reach Lv.5",
+          moreComingSoon: "Coming soon: achievements, badges and more decorations",
+          executionType: "Execution type",
+          attachSlTp: "Add protection (SL/TP)",
+          slLabel: "Stop-Loss price",
+          tpLabel: "Take-Profit price",
+          optional: "optional",
+          protectHolding: "Add protection",
+          protectHoldingDesc: "Set a Stop-Loss or Take-Profit for this holding"
         }
       };
 
@@ -731,6 +771,37 @@
         }
       }
 
+      async function handleProtectHolding(stockId) {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const qty = parseInt(protectQty || '1', 10);
+          const requests = [];
+          if (protectSl) {
+            requests.push(fetch('/api/trade', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ stock_id: stockId, type: 'sell', quantity: qty, order_type: 'stop_loss', target_price: protectSl })
+            }));
+          }
+          if (protectTp) {
+            requests.push(fetch('/api/trade', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ stock_id: stockId, type: 'sell', quantity: qty, order_type: 'take_profit', target_price: protectTp })
+            }));
+          }
+          if (requests.length === 0) return;
+          const results = await Promise.all(requests);
+          const anyFailed = results.some(r => !r.ok);
+          setTradeMsg({ type: anyFailed ? 'error' : 'success', text: anyFailed ? 'Ba\'zi buyurtmalar yaratilmadi' : "Himoya buyurtmalari qo'yildi" });
+          setProtectingHoldingId(null);
+          fetchPortfolio();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
       async function handleUpdateDescription(stockId) {
         try {
           const token = await getAuthToken();
@@ -847,23 +918,39 @@
           const qty = parseInt(tradeQty[stockId] || '1', 10);
           const orderType = orderTypeSel[stockId] || 'market';
           const targetPrice = targetPriceInput[stockId];
+          const slVal = type === 'buy' ? attachSl[stockId] : undefined;
+          const tpVal = type === 'buy' ? attachTp[stockId] : undefined;
           const res = await fetch('/api/trade', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ stock_id: stockId, type, quantity: qty, order_type: orderType, target_price: targetPrice })
+            body: JSON.stringify({
+              stock_id: stockId, type, quantity: qty, order_type: orderType, target_price: targetPrice,
+              attach_sl: slVal || null, attach_tp: tpVal || null
+            })
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Xatolik');
+
+          // MUHIM: hatto xato chiqqan taqdirda ham, balans/holding server'da allaqachon
+          // qisman o'zgargan bo'lishi mumkin — shuning uchun HAR DOIM portfolio'ni qayta yuklaymiz,
+          // toki ekranda eski (noto'g'ri) qiymat qolib ketmasin.
+          if (!res.ok) {
+            if (data.newBalance !== undefined) {
+              setPortfolio(prev => ({ ...prev, balance: data.newBalance }));
+            }
+            fetchPortfolio();
+            throw new Error(data.error || 'Xatolik');
+          }
 
           if (data.pending) {
             setTradeMsg({ type: 'success', text: "Buyurtma qo'yildi, bajarilishini kutmoqda." });
           } else {
             const amountText = `$${parseFloat(data.total).toFixed(2)}`;
             const levelUpText = data.leveledUp ? ` 🎉 Level ${data.newLevel}ga o'tdingiz!` : '';
+            const attachedText = (data.attachedOrders && data.attachedOrders.length > 0) ? ` (SL/TP qo'yildi)` : '';
             setTradeMsg({
               type: 'success',
               text: (type === 'buy'
-                ? `Sotib olindi: ${qty} dona, ${amountText} balansdan yechildi.`
+                ? `Sotib olindi: ${qty} dona, ${amountText} balansdan yechildi.${attachedText}`
                 : `Sotildi: ${qty} dona, ${amountText} balansga qo'shildi.`) + levelUpText
             });
             // Balans, EXP va levelni kutmasdan darhol yangilaymiz
@@ -877,6 +964,9 @@
                 maxUnlockedTier: data.newLevel !== undefined ? Math.floor(data.newLevel / 5) : prev.maxUnlockedTier
               }));
             }
+            setAttachSl({ ...attachSl, [stockId]: '' });
+            setAttachTp({ ...attachTp, [stockId]: '' });
+            setShowSlTp({ ...showSlTp, [stockId]: false });
           }
 
           if (selectedStockId) {
@@ -1012,7 +1102,8 @@
             {[
               { key: 'home', label: t.navHome, icon: 'fa-house' },
               { key: 'market', label: t.navMarket, icon: 'fa-chart-line' },
-              { key: 'portfolio', label: t.navPortfolio, icon: 'fa-wallet' }
+              { key: 'portfolio', label: t.navPortfolio, icon: 'fa-wallet' },
+              { key: 'profile', label: t.navProfile, icon: 'fa-id-badge' }
             ].map(tab => (
               <button
                 key={tab.key}
@@ -1471,18 +1562,16 @@
                                 </button>
                               </div>
 
-                              {/* 2. Keyin: buyurtma turi — Buy/Sell kabi tugmalar (SL/TP endi ikkalasida ham ishlaydi) */}
-                              <div className="grid grid-cols-4 gap-1">
+                              {/* 2. Bajarilish turi — faqat Market yoki Limit (TradingView'dagidek) */}
+                              <div className="grid grid-cols-2 gap-1">
                                 {[
                                   { key: 'market', label: t.orderMarketShort },
-                                  { key: 'limit', label: t.orderLimitShort },
-                                  { key: 'stop_loss', label: t.orderSlShort },
-                                  { key: 'take_profit', label: t.orderTpShort }
+                                  { key: 'limit', label: t.orderLimitShort }
                                 ].map(ot => (
                                   <button
                                     key={ot.key}
                                     onClick={() => setOrderTypeSel({ ...orderTypeSel, [s.id]: ot.key })}
-                                    className={`py-2 rounded-lg text-[10px] font-bold transition border ${
+                                    className={`py-2 rounded-lg text-[11px] font-bold transition border ${
                                       oType === ot.key
                                         ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
                                         : 'bg-slate-950 text-slate-500 border-borderDark'
@@ -1500,7 +1589,7 @@
                                   onChange={e => setTradeQty({ ...tradeQty, [s.id]: e.target.value })}
                                   className="w-20 bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
                                 />
-                                {oType !== 'market' && (
+                                {oType === 'limit' && (
                                   <input
                                     type="number" step="0.01" placeholder={t.targetPriceLabel}
                                     value={targetPriceInput[s.id] || ''}
@@ -1516,6 +1605,35 @@
                                 </p>
                               )}
 
+                              {/* 3. Faqat Sotib olishda: ixtiyoriy SL/TP biriktirish (TradingView'dagidek — pozitsiyani himoya qilish) */}
+                              {side === 'buy' && (
+                                <div className="border-t border-borderDark/50 pt-2 space-y-2">
+                                  <button
+                                    onClick={() => setShowSlTp({ ...showSlTp, [s.id]: !showSlTp[s.id] })}
+                                    className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+                                  >
+                                    <i className={`fa-solid ${showSlTp[s.id] ? 'fa-chevron-down' : 'fa-chevron-right'} text-[9px]`}></i>
+                                    {t.attachSlTp} <span className="text-slate-600">({t.optional})</span>
+                                  </button>
+                                  {showSlTp[s.id] && (
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input
+                                        type="number" step="0.01" placeholder={t.slLabel}
+                                        value={attachSl[s.id] || ''}
+                                        onChange={e => setAttachSl({ ...attachSl, [s.id]: e.target.value })}
+                                        className="bg-slate-950 border border-rose-500/30 rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-rose-500 transition"
+                                      />
+                                      <input
+                                        type="number" step="0.01" placeholder={t.tpLabel}
+                                        value={attachTp[s.id] || ''}
+                                        onChange={e => setAttachTp({ ...attachTp, [s.id]: e.target.value })}
+                                        className="bg-slate-950 border border-emerald-500/30 rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               <button
                                 onClick={() => handleTrade(s.id, side)}
                                 disabled={!user || !marketOpen || tradeLoading === s.id + side}
@@ -1526,7 +1644,7 @@
                                 }`}
                               >
                                 {tradeLoading === s.id + side && <i className="fa-solid fa-spinner fa-spin mr-1"></i>}
-                                {oType === 'market' ? (side === 'buy' ? t.buyBtn : t.sellBtn) : `${side === 'buy' ? t.buyBtn : t.sellBtn} (${t[oType === 'limit' ? 'orderLimit' : oType === 'stop_loss' ? 'orderStopLoss' : 'orderTakeProfit']})`}
+                                {(side === 'buy' ? t.buyBtn : t.sellBtn)}{oType === 'limit' ? ` (${t.orderLimit})` : ''}
                               </button>
                             </div>
 
@@ -1650,46 +1768,6 @@
                 </section>
               ) : (
                 <React.Fragment>
-                  <section className="bg-cardDark p-4 rounded-xl border border-amber-500/30 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center"
-                          style={{ boxShadow: `0 0 0 3px ${frameColor(portfolio.activeFrame)}` }}
-                        >
-                          <i className="fa-solid fa-user text-slate-400"></i>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-100">Lv.{portfolio.level} — {portfolio.rank}</p>
-                          <p className="text-[10px] text-slate-500">{portfolio.expInLevel}/{portfolio.expForNextLevel} EXP</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-400 transition-all"
-                        style={{ width: `${(portfolio.expInLevel / portfolio.expForNextLevel) * 100}%` }}
-                      ></div>
-                    </div>
-                    {portfolio.maxUnlockedTier > 0 && (
-                      <div className="pt-2 border-t border-borderDark/50">
-                        <p className="text-[10px] text-slate-500 mb-1.5">{t.frameSelectLabel}</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {Array.from({ length: portfolio.maxUnlockedTier + 1 }, (_, tier) => (
-                            <button
-                              key={tier}
-                              onClick={() => handleSelectFrame(tier)}
-                              className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center transition"
-                              style={{ boxShadow: `0 0 0 2px ${frameColor(tier)}`, opacity: String(tier) === portfolio.activeFrame ? 1 : 0.5 }}
-                            >
-                              <i className="fa-solid fa-user text-slate-400 text-[10px]"></i>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
                   <section className="bg-cardDark p-4 rounded-xl border border-emerald-500/40 text-center">
                     <p className="text-[10px] text-slate-400 font-semibold">{t.yourBalance}</p>
                     <p className="text-emerald-400 font-bold text-2xl mt-1">
@@ -1732,6 +1810,54 @@
                                   </span>
                                 )}
                               </div>
+
+                              <button
+                                onClick={() => {
+                                  if (protectingHoldingId === h.id) {
+                                    setProtectingHoldingId(null);
+                                  } else {
+                                    setProtectingHoldingId(h.id);
+                                    setProtectQty(String(qty));
+                                    setProtectSl('');
+                                    setProtectTp('');
+                                  }
+                                }}
+                                className="text-[10px] text-cyan-400 hover:underline pt-1"
+                              >
+                                <i className="fa-solid fa-shield-halved mr-1"></i>{t.protectHolding}
+                              </button>
+
+                              {protectingHoldingId === h.id && (
+                                <div className="pt-2 border-t border-borderDark/50 space-y-2">
+                                  <p className="text-[10px] text-slate-500">{t.protectHoldingDesc}</p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <input
+                                      type="number" min="1" max={qty} placeholder={t.qtyLabel}
+                                      value={protectQty}
+                                      onChange={e => setProtectQty(e.target.value)}
+                                      className="bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-cyan-500 transition"
+                                    />
+                                    <input
+                                      type="number" step="0.01" placeholder={t.slLabel}
+                                      value={protectSl}
+                                      onChange={e => setProtectSl(e.target.value)}
+                                      className="bg-slate-950 border border-rose-500/30 rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-rose-500 transition"
+                                    />
+                                    <input
+                                      type="number" step="0.01" placeholder={t.tpLabel}
+                                      value={protectTp}
+                                      onChange={e => setProtectTp(e.target.value)}
+                                      className="bg-slate-950 border border-emerald-500/30 rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => handleProtectHolding(h.stock_id)}
+                                    className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/40 py-2 rounded-lg text-[11px] font-bold transition"
+                                  >
+                                    {t.protectHolding}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1780,6 +1906,69 @@
                       </p>
                     </section>
                   )}
+                </React.Fragment>
+              )}
+            </div>
+          )}
+
+          {/* ============ PROFILE TAB ============ */}
+          {activeTab === 'profile' && (
+            <div className="space-y-5 animate-in">
+              {!user ? (
+                <section className="bg-cardDark p-6 rounded-xl border border-borderDark text-center">
+                  <p className="text-xs text-slate-500">{t.loginToTrade}</p>
+                </section>
+              ) : (
+                <React.Fragment>
+                  <section className="bg-cardDark p-4 rounded-xl border border-amber-500/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-14 h-14 rounded-full bg-slate-900 flex items-center justify-center"
+                          style={{ boxShadow: `0 0 0 3px ${frameColor(portfolio.activeFrame)}` }}
+                        >
+                          <i className="fa-solid fa-user text-slate-400 text-lg"></i>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-100">{user.name}</p>
+                          <p className="text-xs font-semibold text-amber-400">Lv.{portfolio.level} — {portfolio.rank}</p>
+                          <p className="text-[10px] text-slate-500">{portfolio.expInLevel}/{portfolio.expForNextLevel} EXP</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 transition-all"
+                        style={{ width: `${(portfolio.expInLevel / portfolio.expForNextLevel) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[10px] text-slate-500">{t.expHint}</p>
+                  </section>
+
+                  <section className="bg-cardDark p-4 rounded-xl border border-borderDark space-y-2">
+                    <h3 className="text-xs font-bold text-slate-200">{t.frameSelectLabel}</h3>
+                    {portfolio.maxUnlockedTier > 0 ? (
+                      <div className="flex gap-3 flex-wrap">
+                        {Array.from({ length: portfolio.maxUnlockedTier + 1 }, (_, tier) => (
+                          <button
+                            key={tier}
+                            onClick={() => handleSelectFrame(tier)}
+                            className="w-11 h-11 rounded-full bg-slate-900 flex items-center justify-center transition"
+                            style={{ boxShadow: `0 0 0 2px ${frameColor(tier)}`, opacity: String(tier) === portfolio.activeFrame ? 1 : 0.5 }}
+                          >
+                            <i className="fa-solid fa-user text-slate-400 text-xs"></i>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">{t.noFramesYet}</p>
+                    )}
+                  </section>
+
+                  <section className="bg-cardDark p-4 rounded-xl border border-borderDark border-dashed text-center space-y-1">
+                    <i className="fa-solid fa-gift text-slate-600 text-lg"></i>
+                    <p className="text-xs text-slate-500">{t.moreComingSoon}</p>
+                  </section>
                 </React.Fragment>
               )}
             </div>
