@@ -48,6 +48,25 @@ export default async function handler(req, res) {
         await patchStock(stock.id, { daily_earnings: Number(newEarnings.toFixed(2)) }, supabaseUrl, serviceKey);
       }
 
+      // Aksiya solig'i — har 4 kunda bir marta: narx oshgan bo'lsa egaga qo'shiladi, tushgan bo'lsa ayiriladi
+      const lastTaxDate = stock.last_tax_date ? new Date(stock.last_tax_date).getTime() : new Date(stock.created_at).getTime();
+      if (now - lastTaxDate >= 4 * 24 * 60 * 60 * 1000) {
+        const lastTaxPrice = parseFloat(stock.last_tax_price ?? stock.base_price);
+        const diff = price - lastTaxPrice; // musbat bo'lsa qo'shiladi, manfiy bo'lsa ayiriladi
+        if (Math.abs(diff) > 0.001) {
+          const ownerProfileForTax = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${stock.owner_id}&select=balance`, {
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+          }).then((r) => r.json());
+          const ownerBal = ownerProfileForTax?.[0]?.balance !== undefined ? parseFloat(ownerProfileForTax[0].balance) : 100;
+          await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=id`, {
+            method: "POST",
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+            body: JSON.stringify({ id: stock.owner_id, balance: Math.max(0, ownerBal + diff) })
+          });
+        }
+        await patchStock(stock.id, { last_tax_price: price, last_tax_date: new Date().toISOString() }, supabaseUrl, serviceKey);
+      }
+
       await fillPendingOrders(stock.id, price, supabaseUrl, serviceKey);
       ticked++;
     }
@@ -130,8 +149,6 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
   }
 
   const newBalance = isSell ? parseFloat(profile.balance) + total : parseFloat(profile.balance) - total;
-  const newExp = parseInt(profile.exp || 0, 10) + 10;
-  const newLevel = Math.floor(newExp / 100) + 1;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = isSell ? currentHolding - qty : currentHolding + qty;
   const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
@@ -139,14 +156,21 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
 
   let newAvgCost = oldAvgCost;
   let newRealizedPl = oldRealizedPl;
+  let profitThisTrade = 0;
 
   if (!isSell) {
     newAvgCost = newHoldingQty > 0 ? ((oldAvgCost * currentHolding) + total) / newHoldingQty : 0;
   } else {
     const avgSalePrice = total / qty;
-    newRealizedPl = oldRealizedPl + (avgSalePrice - oldAvgCost) * qty;
+    profitThisTrade = (avgSalePrice - oldAvgCost) * qty;
+    newRealizedPl = oldRealizedPl + profitThisTrade;
     newAvgCost = newHoldingQty > 0 ? oldAvgCost : 0;
   }
+
+  // EXP faqat FOYDA bilan sotilganda beriladi
+  let newExp = parseInt(profile.exp || 0, 10);
+  if (isSell && profitThisTrade > 0) newExp += 10;
+  const newLevel = Math.floor(newExp / 100) + 1;
 
   await Promise.all([
     fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${order.user_id}`, {
@@ -197,4 +221,4 @@ async function cancelOrder(orderId, supabaseUrl, serviceKey) {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ status: "cancelled" })
   });
-             }
+      }
