@@ -14,10 +14,10 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: "Sessiya yaroqsiz, qayta kiring" });
 
   if (!isMarketOpen()) {
-    return res.status(400).json({ error: "Bozor hozir yopiq. Savdo vaqti: Dushanba-Juma, 09:00-18:00 (Toshkent vaqti)" });
+    return res.status(400).json({ error: "Bozor hozir yopiq. Savdo vaqti: Dushanba-Juma, 07:00-22:00 (Toshkent vaqti)" });
   }
 
-  const { stock_id, type, quantity, order_type, target_price } = req.body || {};
+  const { stock_id, type, quantity, order_type, target_price, attach_sl, attach_tp } = req.body || {};
   const qty = parseInt(quantity, 10);
   const orderType = order_type || "market";
 
@@ -31,12 +31,11 @@ export default async function handler(req, res) {
   await ensureProfile(user.id, supabaseUrl, serviceKey);
 
   // ===== Market bo'lmagan buyurtmalar (Limit / Stop-Loss / Take-Profit) — navbatga qo'yiladi =====
+  // Bular endi asosan mavjud ulushni himoya qilish uchun ishlatiladi (Portfolio'dan).
   if (orderType !== "market") {
     const tp = parseFloat(target_price);
     if (!tp || tp <= 0) return res.status(400).json({ error: "Maqsad narx (target price) kerak" });
 
-    // SL/TP endi ham Sotib olish, ham Sotish uchun ishlaydi.
-    // Faqat "Sotish" tanlanganda ulush yetarliligi tekshiriladi.
     if (type === "sell") {
       const holdingCheck = await fetch(
         `${supabaseUrl}/rest/v1/stock_holdings?user_id=eq.${user.id}&stock_id=eq.${stock_id}&select=quantity`,
@@ -46,7 +45,7 @@ export default async function handler(req, res) {
       if (owned < qty) return res.status(400).json({ error: "Sizda yetarli ulush yo'q" });
     }
 
-    const side = type; // Tanlangan tomon (buy/sell) barcha order turlari uchun saqlanadi
+    const side = type;
 
     const insertRes = await fetch(`${supabaseUrl}/rest/v1/stock_orders`, {
       method: "POST",
@@ -62,7 +61,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, order: created[0], pending: true });
   }
 
-  // ===== Market buyurtma — darhol bajariladi =====
+  // ===== Market buyurtma (Limit ham shu yerdan boshlanadi, lekin hozircha faqat Market darhol bajariladi) =====
   const [stockRes, profileRes, holdingRes] = await Promise.all([
     fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}&select=*`, {
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
@@ -98,9 +97,6 @@ export default async function handler(req, res) {
 
   const newBalance = type === "buy" ? parseFloat(profile.balance) - total : parseFloat(profile.balance) + total;
 
-  // Har bir bajarilgan savdo uchun +10 EXP, har 100 EXP = 1 daraja
-  const newExp = parseInt(profile.exp || 0, 10) + 10;
-  const newLevel = Math.floor(newExp / 100) + 1;
   const currentHolding = holding ? parseFloat(holding.quantity) : 0;
   const newHoldingQty = type === "buy" ? currentHolding + qty : currentHolding - qty;
   const oldAvgCost = holding ? parseFloat(holding.avg_cost || 0) : 0;
@@ -108,14 +104,26 @@ export default async function handler(req, res) {
 
   let newAvgCost = oldAvgCost;
   let newRealizedPl = oldRealizedPl;
+  let profitThisTrade = 0;
 
   if (type === "buy") {
     newAvgCost = newHoldingQty > 0 ? ((oldAvgCost * currentHolding) + total) / newHoldingQty : 0;
   } else {
     const avgSalePrice = total / qty;
-    newRealizedPl = oldRealizedPl + (avgSalePrice - oldAvgCost) * qty;
+    profitThisTrade = (avgSalePrice - oldAvgCost) * qty;
+    newRealizedPl = oldRealizedPl + profitThisTrade;
     newAvgCost = newHoldingQty > 0 ? oldAvgCost : 0;
   }
+
+  // EXP faqat FOYDA bilan sotilganda beriladi (sotib olishda EXP yo'q)
+  let newExp = parseInt(profile.exp || 0, 10);
+  let leveledUp = false;
+  const oldLevel = parseInt(profile.level || 1, 10);
+  if (type === "sell" && profitThisTrade > 0) {
+    newExp += 10;
+  }
+  const newLevel = Math.floor(newExp / 100) + 1;
+  if (newLevel > oldLevel) leveledUp = true;
 
   const balancePatchRes = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}`, {
     method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
@@ -128,7 +136,6 @@ export default async function handler(req, res) {
   }
   const balancePatchData = await balancePatchRes.json();
   const confirmedBalance = balancePatchData?.[0]?.balance !== undefined ? parseFloat(balancePatchData[0].balance) : newBalance;
-  const leveledUp = newLevel > parseInt(profile.level || 1, 10);
 
   const stockPatchRes = await fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stock_id}`, {
     method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
@@ -136,29 +143,32 @@ export default async function handler(req, res) {
   });
   if (!stockPatchRes.ok) {
     const errText = await stockPatchRes.text();
-    return res.status(500).json({ error: "Narxni yangilashda xatolik: " + errText });
+    return res.status(500).json({ error: "Narxni yangilashda xatolik: " + errText, newBalance: confirmedBalance });
   }
 
   const holdingRes2 = holding
     ? await fetch(`${supabaseUrl}/rest/v1/stock_holdings?id=eq.${holding.id}`, {
-        method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        method: "PATCH", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
         body: JSON.stringify({ quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
       })
     : await fetch(`${supabaseUrl}/rest/v1/stock_holdings`, {
-        method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
         body: JSON.stringify({ user_id: user.id, stock_id, quantity: newHoldingQty, avg_cost: newAvgCost, realized_pl: newRealizedPl })
       });
   if (!holdingRes2.ok) {
     const errText = await holdingRes2.text();
-    return res.status(500).json({ error: "Ulushni yangilashda xatolik: " + errText });
+    // Balans allaqachon yangilangan — bu haqiqatni javobda ko'rsatamiz
+    return res.status(500).json({ error: "Ulushni yangilashda xatolik: " + errText, newBalance: confirmedBalance, newExp, newLevel });
   }
+  const holdingData = await holdingRes2.json();
+  const newHoldingId = holdingData?.[0]?.id || holding?.id;
 
   await fetch(`${supabaseUrl}/rest/v1/stock_transactions`, {
     method: "POST", headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ stock_id, user_id: user.id, type, quantity: qty, price: total / qty })
   });
 
-  // Egasiga 2% royalty (o'zi savdo qilmasa)
+  // Egasiga 2% royalty — FAQAT haqiqiy foydalanuvchi savdosi uchun (bot savdosi uchun emas)
   if (stock.owner_id !== user.id) {
     const royalty = total * 0.02;
     const ownerProfile = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${stock.owner_id}&select=balance`, {
@@ -172,16 +182,43 @@ export default async function handler(req, res) {
     });
   }
 
+  // Sotib olish bo'lsa va SL/TP biriktirilgan bo'lsa — ularni himoya buyurtmasi sifatida qo'shamiz
+  const attachedOrders = [];
+  if (type === "buy") {
+    const slPrice = parseFloat(attach_sl);
+    const tpPrice = parseFloat(attach_tp);
+    if (slPrice > 0) {
+      const slRes = await fetch(`${supabaseUrl}/rest/v1/stock_orders`, {
+        method: "POST",
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ stock_id, user_id: user.id, side: "sell", order_type: "stop_loss", target_price: slPrice, quantity: qty, status: "pending" })
+      });
+      if (slRes.ok) { const d = await slRes.json(); attachedOrders.push(d[0]); }
+    }
+    if (tpPrice > 0) {
+      const tpRes = await fetch(`${supabaseUrl}/rest/v1/stock_orders`, {
+        method: "POST",
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ stock_id, user_id: user.id, side: "sell", order_type: "take_profit", target_price: tpPrice, quantity: qty, status: "pending" })
+      });
+      if (tpRes.ok) { const d = await tpRes.json(); attachedOrders.push(d[0]); }
+    }
+  }
+
   // Yangi narx boshqa kutayotgan limit/SL/TP buyurtmalarni ishga tushirishi mumkin
   try { await fillPendingOrders(stock_id, price, supabaseUrl, serviceKey); } catch (e) {}
 
-  return res.status(200).json({ success: true, newPrice: price, total, newBalance: confirmedBalance, newExp, newLevel, leveledUp });
+  return res.status(200).json({
+    success: true, newPrice: price, total, newBalance: confirmedBalance,
+    newExp, newLevel, leveledUp, profitThisTrade, attachedOrders
+  });
 }
 
 function priceAt(basePrice, supply) {
   return basePrice * (1 + supply * 0.01);
 }
 
+// Savdo vaqti: Dushanba-Juma, 07:00-22:00, Toshkent vaqti (UTC+5)
 function isMarketOpen() {
   const now = new Date();
   const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -189,7 +226,7 @@ function isMarketOpen() {
   const day = tashkent.getDay();
   const hour = tashkent.getHours();
   if (day === 0 || day === 6) return false;
-  return hour >= 9 && hour < 18;
+  return hour >= 7 && hour < 22;
 }
 
 async function getUserFromToken(token, supabaseUrl, serviceKey) {
@@ -214,4 +251,4 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
       body: JSON.stringify({ id: userId, balance: 100 })
     });
   }
-  }
+    }
