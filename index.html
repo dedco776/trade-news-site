@@ -155,7 +155,7 @@
       const [authChecked, setAuthChecked] = useState(false);
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [isRegistering, setIsRegistering] = useState(false);
-      const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
+      const [authForm, setAuthForm] = useState({ email: '', password: '', name: '', referralCode: '' });
       const [authLoading, setAuthLoading] = useState(false);
       const [authMessage, setAuthMessage] = useState({ type: '', text: '' });
 
@@ -169,7 +169,7 @@
       const [tradeQty, setTradeQty] = useState({});
       const [tradeLoading, setTradeLoading] = useState(null);
       const [tradeMsg, setTradeMsg] = useState({ type: '', text: '' });
-      const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [], level: 1, exp: 0, expInLevel: 0, expForNextLevel: 100, rank: 'Rookie', activeFrame: 'none', maxUnlockedTier: 0, totalCharityGiven: 0 });
+      const [portfolio, setPortfolio] = useState({ balance: 100, holdings: [], level: 1, exp: 0, expInLevel: 0, expForNextLevel: 100, rank: 'Rookie', activeFrame: 'none', maxUnlockedTier: 0, totalCharityGiven: 0, referralCode: null });
       const [loadingPortfolio, setLoadingPortfolio] = useState(false);
       const [selectedStockId, setSelectedStockId] = useState(null);
       const [stockDetail, setStockDetail] = useState(null);
@@ -209,6 +209,23 @@
       const [currentStockInfo, setCurrentStockInfo] = useState(null);
       const [loadingStockInfo, setLoadingStockInfo] = useState(false);
 
+      // Bildirishnomalar
+      const [notifications, setNotifications] = useState([]);
+      const [unreadCount, setUnreadCount] = useState(0);
+      const [showNotifications, setShowNotifications] = useState(false);
+
+      // Reyting
+      const [leaders, setLeaders] = useState([]);
+      const [loadingLeaders, setLoadingLeaders] = useState(false);
+
+      // Aksiyalar bozori filtri/saralash
+      const [filterCategory, setFilterCategoryState] = useState('all');
+      const [sortBy, setSortBy] = useState('newest');
+      const [halalOnlyFilter, setHalalOnlyFilter] = useState(false);
+
+      // Kunlik bonus xabari
+      const [dailyBonusMsg, setDailyBonusMsg] = useState(false);
+
       useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
           if (data?.session?.user) {
@@ -245,6 +262,20 @@
           clearInterval(botTimer);
         };
       }, []);
+
+      // Foydalanuvchi aniqlanishi bilan (login yoki sahifa qayta yuklanganda) balans/EXP/level darhol yuklansin —
+      // faqat Portfolio/Profil bo'limiga kirilganda emas.
+      useEffect(() => {
+        if (user) fetchPortfolio();
+      }, [user]);
+
+      // Bildirishnomalar — tizimga kirilganda va har 60 soniyada tekshiriladi
+      useEffect(() => {
+        if (!user) { setNotifications([]); setUnreadCount(0); return; }
+        fetchNotifications();
+        const notifTimer = setInterval(fetchNotifications, 60 * 1000);
+        return () => clearInterval(notifTimer);
+      }, [user]);
 
       const translations = {
         uz: {
@@ -375,7 +406,25 @@
           tpLabel: "Take-Profit narxi",
           optional: "ixtiyoriy",
           protectHolding: "Himoya qo'shish",
-          protectHoldingDesc: "Ushbu ulush uchun Stop-Loss yoki Take-Profit qo'ying"
+          protectHoldingDesc: "Ushbu ulush uchun Stop-Loss yoki Take-Profit qo'ying",
+          referralCodeLabel: "Referal kod",
+          yourReferralCode: "Sizning referal kodingiz",
+          shareReferralHint: "Do'stingizga shu kodni bering — ikkalangiz ham $20 va 20 EXP olasiz",
+          dailyBonusToast: "Kunlik bonus: $10 va 10 EXP oldingiz!",
+          notificationsTitle: "Bildirishnomalar",
+          noNotifications: "Bildirishnomalar yo'q",
+          markAllRead: "Hammasini o'qilgan qilish",
+          navLeaderboard: "Reyting",
+          leaderboardTitle: "Top Treyderlar",
+          netWorthLabel: "Umumiy boylik",
+          filterCategory: "Kategoriya",
+          sortByLabel: "Saralash",
+          sortNewest: "Yangi",
+          sortPriceHigh: "Narx (yuqori)",
+          sortPriceLow: "Narx (past)",
+          sortNameAz: "Nomi (A-Z)",
+          allCategories: "Barcha kategoriyalar",
+          halalOnlyFilter: "Faqat Halol"
         },
         ru: {
           subtitle: "ХАЛЯЛЬ СВИНГ ТЕРМИНАЛ",
@@ -505,7 +554,25 @@
           tpLabel: "Цена Take-Profit",
           optional: "необязательно",
           protectHolding: "Добавить защиту",
-          protectHoldingDesc: "Установите Stop-Loss или Take-Profit для этой доли"
+          protectHoldingDesc: "Установите Stop-Loss или Take-Profit для этой доли",
+          referralCodeLabel: "Реферальный код",
+          yourReferralCode: "Ваш реферальный код",
+          shareReferralHint: "Поделитесь этим кодом с другом — вы оба получите $20 и 20 EXP",
+          dailyBonusToast: "Ежедневный бонус: вы получили $10 и 10 EXP!",
+          notificationsTitle: "Уведомления",
+          noNotifications: "Уведомлений нет",
+          markAllRead: "Отметить всё прочитанным",
+          navLeaderboard: "Рейтинг",
+          leaderboardTitle: "Топ Трейдеры",
+          netWorthLabel: "Общее богатство",
+          filterCategory: "Категория",
+          sortByLabel: "Сортировка",
+          sortNewest: "Новые",
+          sortPriceHigh: "Цена (выше)",
+          sortPriceLow: "Цена (ниже)",
+          sortNameAz: "Название (А-Я)",
+          allCategories: "Все категории",
+          halalOnlyFilter: "Только Халяль"
         },
         en: {
           subtitle: "HALAL SWING TERMINAL",
@@ -635,7 +702,25 @@
           tpLabel: "Take-Profit price",
           optional: "optional",
           protectHolding: "Add protection",
-          protectHoldingDesc: "Set a Stop-Loss or Take-Profit for this holding"
+          protectHoldingDesc: "Set a Stop-Loss or Take-Profit for this holding",
+          referralCodeLabel: "Referral code",
+          yourReferralCode: "Your referral code",
+          shareReferralHint: "Share this code with a friend — you both get $20 and 20 EXP",
+          dailyBonusToast: "Daily bonus: you got $10 and 10 EXP!",
+          notificationsTitle: "Notifications",
+          noNotifications: "No notifications",
+          markAllRead: "Mark all as read",
+          navLeaderboard: "Leaderboard",
+          leaderboardTitle: "Top Traders",
+          netWorthLabel: "Net worth",
+          filterCategory: "Category",
+          sortByLabel: "Sort by",
+          sortNewest: "Newest",
+          sortPriceHigh: "Price (high)",
+          sortPriceLow: "Price (low)",
+          sortNameAz: "Name (A-Z)",
+          allCategories: "All categories",
+          halalOnlyFilter: "Halal only"
         }
       };
 
@@ -654,7 +739,8 @@
 
       useEffect(() => {
         if (activeTab === 'market' && !selectedStockId) fetchStocks();
-        if (activeTab === 'portfolio' && user) fetchPortfolio();
+        if ((activeTab === 'portfolio' || activeTab === 'profile') && user) fetchPortfolio();
+        if (activeTab === 'leaderboard') fetchLeaderboard();
       }, [activeTab, user, selectedStockId]);
 
       useEffect(() => {
@@ -870,12 +956,55 @@
             rank: data.rank ?? 'Rookie',
             activeFrame: data.activeFrame ?? 'none',
             maxUnlockedTier: data.maxUnlockedTier ?? 0,
-            totalCharityGiven: data.totalCharityGiven ?? 0
+            totalCharityGiven: data.totalCharityGiven ?? 0,
+            referralCode: data.referralCode ?? null
           });
+          if (data.dailyBonusGiven) {
+            setDailyBonusMsg(true);
+            setTimeout(() => setDailyBonusMsg(false), 6000);
+            fetchNotifications();
+          }
         } catch (e) {
           console.error(e);
         }
         setLoadingPortfolio(false);
+      }
+
+      async function fetchNotifications() {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function markNotificationsRead() {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          await fetch('/api/notifications', { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+          setUnreadCount(0);
+          setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function fetchLeaderboard() {
+        setLoadingLeaders(true);
+        try {
+          const res = await fetch('/api/leaderboard');
+          const data = await res.json();
+          setLeaders(data.leaders || []);
+        } catch (e) {
+          console.error(e);
+        }
+        setLoadingLeaders(false);
       }
 
       async function handleCreateStock(e) {
@@ -1009,6 +1138,18 @@
               return;
             }
             setAuthMessage({ type: 'success', text: "Muvaffaqiyatli ro'yxatdan o'tdingiz!" });
+
+            // Agar referal kod kiritilgan bo'lsa, darhol qayta ishlaymiz
+            if (authForm.referralCode) {
+              try {
+                const token = data.session.access_token;
+                await fetch('/api/referral', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ referral_code: authForm.referralCode })
+                });
+              } catch (e) { /* referal ixtiyoriy, xato bo'lsa ham davom etaveramiz */ }
+            }
           } else {
             const { error } = await supabase.auth.signInWithPassword({
               email: authForm.email,
@@ -1020,8 +1161,9 @@
 
           setTimeout(() => {
             setShowAuthModal(false);
-            setAuthForm({ email: '', password: '', name: '' });
+            setAuthForm({ email: '', password: '', name: '', referralCode: '' });
             setAuthMessage({ type: '', text: '' });
+            fetchPortfolio();
           }, 800);
 
         } catch (err) {
@@ -1055,6 +1197,44 @@
             </div>
 
             <div className="flex items-center gap-3">
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowNotifications(!showNotifications); if (!showNotifications && unreadCount > 0) markNotificationsRead(); }}
+                    className="relative w-8 h-8 rounded-lg bg-slate-900 border border-borderDark flex items-center justify-center text-slate-400 hover:text-slate-200 transition"
+                  >
+                    <i className="fa-solid fa-bell text-xs"></i>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {showNotifications && (
+                    <div className="absolute right-0 top-10 w-72 max-h-80 overflow-y-auto bg-cardDark border border-borderDark rounded-xl shadow-2xl z-50 animate-in">
+                      <div className="p-3 border-b border-borderDark flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-200">{t.notificationsTitle}</span>
+                        <button onClick={() => setShowNotifications(false)} className="text-slate-500 hover:text-slate-300">
+                          <i className="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                      </div>
+                      {notifications.length > 0 ? (
+                        <div className="divide-y divide-borderDark/50">
+                          {notifications.map((n) => (
+                            <div key={n.id} className={`p-3 text-[11px] ${n.read ? 'text-slate-500' : 'text-slate-200'}`}>
+                              {n.message}
+                              <p className="text-[9px] text-slate-600 mt-0.5">{new Date(n.created_at).toLocaleString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 text-center py-6">{t.noNotifications}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {!authChecked ? (
                 <div className="w-16 h-6 rounded-lg bg-slate-800/60 animate-pulse"></div>
               ) : user ? (
@@ -1098,17 +1278,18 @@
           </header>
 
           {/* Nav Menu */}
-          <nav className="flex bg-cardDark p-1.5 rounded-xl border border-borderDark gap-1">
+          <nav className="flex bg-cardDark p-1.5 rounded-xl border border-borderDark gap-1 overflow-x-auto">
             {[
               { key: 'home', label: t.navHome, icon: 'fa-house' },
               { key: 'market', label: t.navMarket, icon: 'fa-chart-line' },
               { key: 'portfolio', label: t.navPortfolio, icon: 'fa-wallet' },
-              { key: 'profile', label: t.navProfile, icon: 'fa-id-badge' }
+              { key: 'profile', label: t.navProfile, icon: 'fa-id-badge' },
+              { key: 'leaderboard', label: t.navLeaderboard, icon: 'fa-trophy' }
             ].map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition ${
+                className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold transition whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : 'text-slate-400 hover:text-slate-200'
@@ -1119,6 +1300,15 @@
               </button>
             ))}
           </nav>
+
+          {dailyBonusMsg && (
+            <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 flex justify-between items-center animate-in">
+              <span className="text-xs font-bold text-amber-400"><i className="fa-solid fa-gift mr-1"></i> {t.dailyBonusToast}</span>
+              <button onClick={() => setDailyBonusMsg(false)} className="text-amber-400/60 hover:text-amber-400">
+                <i className="fa-solid fa-xmark text-xs"></i>
+              </button>
+            </div>
+          )}
 
           {/* ============ HOME TAB ============ */}
           {activeTab === 'home' && (
@@ -1366,11 +1556,47 @@
                     <i className="fa-solid fa-list"></i> {t.allStocksTitle}
                   </h3>
 
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={filterCategory}
+                      onChange={e => setFilterCategoryState(e.target.value)}
+                      className="bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                    >
+                      <option value="all">{t.allCategories}</option>
+                      {categories.map(c => (
+                        <option key={c.key} value={c.key}>{c[currentLang]}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value)}
+                      className="bg-slate-950 border border-borderDark rounded-lg px-2 py-2 text-[11px] text-slate-200 outline-none focus:border-emerald-500 transition"
+                    >
+                      <option value="newest">{t.sortNewest}</option>
+                      <option value="price_high">{t.sortPriceHigh}</option>
+                      <option value="price_low">{t.sortPriceLow}</option>
+                      <option value="name_az">{t.sortNameAz}</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 text-[11px] text-slate-400">
+                    <input type="checkbox" checked={halalOnlyFilter} onChange={e => setHalalOnlyFilter(e.target.checked)} className="accent-emerald-500" />
+                    {t.halalOnlyFilter}
+                  </label>
+
                   {loadingStocks ? (
                     <p className="text-xs text-slate-400 py-4 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
                   ) : demoStocks.length > 0 ? (
                     <div className="space-y-2">
-                      {demoStocks.map((stock) => {
+                      {demoStocks
+                        .filter(s => filterCategory === 'all' || s.category === filterCategory)
+                        .filter(s => !halalOnlyFilter || parseFloat(s.haram_income_pct || 0) === 0)
+                        .sort((a, b) => {
+                          if (sortBy === 'price_high') return parseFloat(b.current_price) - parseFloat(a.current_price);
+                          if (sortBy === 'price_low') return parseFloat(a.current_price) - parseFloat(b.current_price);
+                          if (sortBy === 'name_az') return a.name.localeCompare(b.name);
+                          return new Date(b.created_at) - new Date(a.created_at);
+                        })
+                        .map((stock) => {
                         const haramPct = parseFloat(stock.haram_income_pct || 0);
                         const halalIcon = haramPct > 5 ? '✕' : haramPct > 0 ? '⚠' : '✓';
                         const halalColor = haramPct > 5 ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' : haramPct > 0 ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
@@ -1965,11 +2191,69 @@
                     )}
                   </section>
 
+                  {portfolio.referralCode && (
+                    <section className="bg-cardDark p-4 rounded-xl border border-cyan-500/40 space-y-2">
+                      <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-2">
+                        <i className="fa-solid fa-user-group"></i> {t.yourReferralCode}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-sm font-mono font-bold text-slate-200 text-center tracking-widest">
+                          {portfolio.referralCode}
+                        </span>
+                        <button
+                          onClick={() => { navigator.clipboard?.writeText(portfolio.referralCode); }}
+                          className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/40 px-3 py-2 rounded-lg text-xs font-bold transition"
+                        >
+                          <i className="fa-solid fa-copy"></i>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500">{t.shareReferralHint}</p>
+                    </section>
+                  )}
+
                   <section className="bg-cardDark p-4 rounded-xl border border-borderDark border-dashed text-center space-y-1">
                     <i className="fa-solid fa-gift text-slate-600 text-lg"></i>
                     <p className="text-xs text-slate-500">{t.moreComingSoon}</p>
                   </section>
                 </React.Fragment>
+              )}
+            </div>
+          )}
+
+          {/* ============ LEADERBOARD TAB ============ */}
+          {activeTab === 'leaderboard' && (
+            <div className="space-y-3 animate-in">
+              <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <i className="fa-solid fa-trophy text-amber-400"></i> {t.leaderboardTitle}
+              </h2>
+              {loadingLeaders ? (
+                <p className="text-xs text-slate-400 py-8 text-center"><i className="fa-solid fa-spinner fa-spin mr-1"></i> {t.loading}</p>
+              ) : leaders.length > 0 ? (
+                <div className="space-y-2">
+                  {leaders.map((l, idx) => (
+                    <div
+                      key={l.id}
+                      className={`bg-cardDark p-3 rounded-xl border flex items-center gap-3 ${idx === 0 ? 'border-amber-500/50' : idx === 1 ? 'border-slate-400/40' : idx === 2 ? 'border-orange-700/40' : 'border-borderDark'}`}
+                    >
+                      <span className={`w-6 text-center font-bold text-sm ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-600' : 'text-slate-500'}`}>
+                        {idx + 1}
+                      </span>
+                      <div
+                        className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0"
+                        style={{ boxShadow: `0 0 0 2px ${frameColor(l.activeFrame)}` }}
+                      >
+                        <i className="fa-solid fa-user text-slate-400 text-xs"></i>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-slate-200">{l.name}</p>
+                        <p className="text-[10px] text-slate-500">Lv.{l.level}</p>
+                      </div>
+                      <span className="text-emerald-400 font-bold text-sm">${l.netWorth.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 py-8 text-center">{t.noStocks}</p>
               )}
             </div>
           )}
@@ -2014,6 +2298,18 @@
                         required
                         value={authForm.name}
                         onChange={e => setAuthForm({...authForm, name: e.target.value})}
+                        className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500 transition"
+                      />
+                    </div>
+                  )}
+
+                  {isRegistering && (
+                    <div>
+                      <label className="text-slate-400 block mb-1">{t.referralCodeLabel} <span className="text-slate-600">({t.optional})</span></label>
+                      <input
+                        type="text"
+                        value={authForm.referralCode}
+                        onChange={e => setAuthForm({...authForm, referralCode: e.target.value.toUpperCase()})}
                         className="w-full bg-slate-900 border border-borderDark rounded-lg px-3 py-2 text-slate-200 outline-none focus:border-emerald-500 transition"
                       />
                     </div>
