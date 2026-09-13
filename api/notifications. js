@@ -1,0 +1,56 @@
+export default async function handler(req, res) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: "Server sozlanmagan" });
+
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "Avval tizimga kiring" });
+
+  const user = await getUserFromToken(token, supabaseUrl, serviceKey);
+  if (!user) return res.status(401).json({ error: "Sessiya yaroqsiz, qayta kiring" });
+
+  if (req.method === "GET") {
+    const notifications = await fetch(
+      `${supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}&select=*&order=created_at.desc&limit=30`,
+      { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+    ).then((r) => r.json());
+
+    const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.read).length : 0;
+    return res.status(200).json({ notifications: notifications || [], unreadCount });
+  }
+
+  if (req.method === "PATCH") {
+    // Hammasini o'qilgan deb belgilash
+    await fetch(`${supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}&read=eq.false`, {
+      method: "PATCH",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ read: true })
+    });
+    return res.status(200).json({ success: true });
+  }
+
+  return res.status(405).json({ error: "Method not allowed" });
+}
+
+async function getUserFromToken(token, supabaseUrl, serviceKey) {
+  try {
+    const r = await fetch(`${supabaseUrl}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+// Boshqa API fayllar shu funksiyani import qilib bildirishnoma yaratadi
+export async function createNotification(userId, type, message, supabaseUrl, serviceKey) {
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/notifications`, {
+      method: "POST",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ user_id: userId, type, message })
+    });
+  } catch (e) {
+    // bildirishnoma yaratilmasa ham asosiy amal davom etishi kerak
+  }
+}
