@@ -1,4 +1,5 @@
 import { fillPendingOrders } from "./market-bot.js";
+import { createNotification } from "./notifications.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -180,6 +181,15 @@ export default async function handler(req, res) {
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({ id: stock.owner_id, balance: ownerBalance + royalty })
     });
+    await createNotification(
+      stock.owner_id, 'royalty',
+      `${stock.ticker} bo'yicha savdodan $${royalty.toFixed(2)} bonus oldingiz`,
+      supabaseUrl, serviceKey
+    );
+  }
+
+  if (leveledUp) {
+    await createNotification(user.id, 'level_up', `Tabriklaymiz! Level ${newLevel}ga o'tdingiz`, supabaseUrl, serviceKey);
   }
 
   // Sotib olish bo'lsa va SL/TP biriktirilgan bo'lsa — ularni himoya buyurtmasi sifatida qo'shamiz
@@ -248,7 +258,7 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
     await fetch(`${supabaseUrl}/rest/v1/profiles`, {
       method: "POST",
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=minimal" },
-      body: JSON.stringify({ id: userId, balance: 100 })
+      body: JSON.stringify({ id: userId, balance: 100, referral_code: userId.slice(0, 8).toUpperCase() })
     });
   }
     }
