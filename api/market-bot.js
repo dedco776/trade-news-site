@@ -1,3 +1,5 @@
+import { createNotification } from "./notifications.js";
+
 export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -63,6 +65,13 @@ export default async function handler(req, res) {
             headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
             body: JSON.stringify({ id: stock.owner_id, balance: Math.max(0, ownerBal + diff) })
           });
+          await createNotification(
+            stock.owner_id, 'stock_tax',
+            diff > 0
+              ? `Aksiya solig'i: ${stock.ticker} narxi oshgani uchun $${diff.toFixed(2)} qo'shildi`
+              : `Aksiya solig'i: ${stock.ticker} narxi tushgani uchun $${Math.abs(diff).toFixed(2)} ayirildi`,
+            supabaseUrl, serviceKey
+          );
         }
         await patchStock(stock.id, { last_tax_price: price, last_tax_date: new Date().toISOString() }, supabaseUrl, serviceKey);
       }
@@ -199,6 +208,13 @@ async function executeOrder(order, supabaseUrl, serviceKey) {
       body: JSON.stringify({ stock_id: order.stock_id, user_id: order.user_id, type: isSell ? "sell" : "buy", quantity: qty, price: total / qty })
     })
   ]);
+
+  const orderTypeLabel = order.order_type === 'stop_loss' ? 'Stop-Loss' : order.order_type === 'take_profit' ? 'Take-Profit' : 'Limit';
+  await createNotification(
+    order.user_id, 'order_filled',
+    `${orderTypeLabel} bajarildi: ${stock.ticker} — ${qty} dona, $${(total / qty).toFixed(2)} narxda`,
+    supabaseUrl, serviceKey
+  );
 
   // Egasiga 2% royalty (virtual bonus)
   if (stock.owner_id !== order.user_id) {
