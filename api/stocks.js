@@ -152,7 +152,7 @@ async function ensureProfile(userId, supabaseUrl, serviceKey) {
         "Content-Type": "application/json",
         Prefer: "resolution=ignore-duplicates,return=minimal"
       },
-      body: JSON.stringify({ id: userId, balance: 100 })
+      body: JSON.stringify({ id: userId, balance: 100, referral_code: userId.slice(0, 8).toUpperCase() })
     });
   }
-                }
+      }
