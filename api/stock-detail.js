@@ -8,6 +8,11 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: "Server sozlanmagan" });
   if (!id) return res.status(400).json({ error: "Aksiya id kerak" });
 
+  // ?type=candles&interval=X — shamlar grafigi ma'lumoti (avval candles.js edi)
+  if (req.query.type === "candles") {
+    return handleCandles(req, res, id, supabaseUrl, serviceKey);
+  }
+
   try {
     const [stockRes, txRes, holdersRes, orderBookRes] = await Promise.all([
       fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${id}&select=*`, {
@@ -101,4 +106,56 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: "Server xatosi" });
   }
-                                                                   }
+}
+
+async function handleCandles(req, res, stockId, supabaseUrl, serviceKey) {
+  const interval = req.query.interval;
+  const bucketMs = { "1m": 60000, "5m": 300000, "15m": 900000, "1d": 86400000 }[interval] || 300000;
+
+  try {
+    const [stockRes, txRes] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/user_stocks?id=eq.${stockId}&select=base_price,created_at`, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+      }).then((r) => r.json()),
+      fetch(
+        `${supabaseUrl}/rest/v1/stock_transactions?stock_id=eq.${stockId}&select=price,quantity,created_at&order=created_at.asc`,
+        { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } }
+      ).then((r) => r.json())
+    ]);
+
+    const stock = stockRes?.[0];
+    if (!stock) return res.status(404).json({ error: "Aksiya topilmadi" });
+
+    const points = [
+      { price: parseFloat(stock.base_price), quantity: 0, time: new Date(stock.created_at).getTime() },
+      ...(Array.isArray(txRes) ? txRes : []).map((tx) => ({
+        price: parseFloat(tx.price),
+        quantity: parseFloat(tx.quantity),
+        time: new Date(tx.created_at).getTime()
+      }))
+    ];
+
+    const buckets = new Map();
+    for (const p of points) {
+      const bucketTime = Math.floor(p.time / bucketMs) * bucketMs;
+      if (!buckets.has(bucketTime)) {
+        buckets.set(bucketTime, { open: p.price, high: p.price, low: p.price, close: p.price, volume: 0, time: bucketTime });
+      }
+      const b = buckets.get(bucketTime);
+      b.high = Math.max(b.high, p.price);
+      b.low = Math.min(b.low, p.price);
+      b.close = p.price;
+      b.volume += p.quantity;
+    }
+
+    const candles = Array.from(buckets.values()).sort((a, b) => a.time - b.time);
+    const formatted = candles.map((c) => ({
+      time: Math.floor(c.time / 1000),
+      open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume
+    }));
+
+    return res.status(200).json({ candles: formatted });
+  } catch (e) {
+    return res.status(500).json({ error: "Server xatosi" });
+  }
+                  }
