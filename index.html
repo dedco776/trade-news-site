@@ -46,8 +46,8 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const SUPABASE_URL = "https://jmliduazpmlgjlzgqnua.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbGlkdWF6cG1sZ2psemdxbnVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjIxOTMxOCwiZXhwIjoyMTAxNzk1MzE4fQ.h2lA2vrEQZeVijSu7ZdLdwGcfHep5SluhSc_QmGcSJQ";
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -768,7 +768,7 @@
       async function fetchStockInfo(symbol) {
         setLoadingStockInfo(true);
         try {
-          const res = await fetch(`/api/stock-info?symbol=${symbol}`);
+          const res = await fetch(`/api/market-signals?symbol=${symbol}`);
           const data = await res.json();
           setCurrentStockInfo(data);
         } catch (err) {
@@ -822,7 +822,7 @@
 
       async function fetchCandles(id, interval) {
         try {
-          const res = await fetch(`/api/candles?stock_id=${id}&interval=${interval}`);
+          const res = await fetch(`/api/stock-detail?id=${id}&type=candles&interval=${interval}`);
           const data = await res.json();
           setCandles(data.candles || []);
         } catch (e) {
@@ -974,7 +974,7 @@
         try {
           const token = await getAuthToken();
           if (!token) return;
-          const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${token}` } });
+          const res = await fetch('/api/portfolio?view=notifications', { headers: { Authorization: `Bearer ${token}` } });
           const data = await res.json();
           setNotifications(data.notifications || []);
           setUnreadCount(data.unreadCount || 0);
@@ -987,7 +987,11 @@
         try {
           const token = await getAuthToken();
           if (!token) return;
-          await fetch('/api/notifications', { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+          await fetch('/api/portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action: 'mark_notifications_read' })
+          });
           setUnreadCount(0);
           setNotifications(prev => prev.map(n => ({ ...n, read: true })));
         } catch (e) {
@@ -998,7 +1002,7 @@
       async function fetchLeaderboard() {
         setLoadingLeaders(true);
         try {
-          const res = await fetch('/api/leaderboard');
+          const res = await fetch('/api/portfolio?view=leaderboard');
           const data = await res.json();
           setLeaders(data.leaders || []);
         } catch (e) {
@@ -1143,10 +1147,10 @@
             if (authForm.referralCode) {
               try {
                 const token = data.session.access_token;
-                await fetch('/api/referral', {
+                await fetch('/api/portfolio', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  body: JSON.stringify({ referral_code: authForm.referralCode })
+                  body: JSON.stringify({ action: 'apply_referral', referral_code: authForm.referralCode })
                 });
               } catch (e) { /* referal ixtiyoriy, xato bo'lsa ham davom etaveramiz */ }
             }
