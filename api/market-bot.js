@@ -1,4 +1,4 @@
-import { createNotification } from "./notifications.js";
+import { createNotification } from "../lib/notifications.js";
 
 export default async function handler(req, res) {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -237,4 +237,4 @@ async function cancelOrder(orderId, supabaseUrl, serviceKey) {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ status: "cancelled" })
   });
-      }
+                              }
